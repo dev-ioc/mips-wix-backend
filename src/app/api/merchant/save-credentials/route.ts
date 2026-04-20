@@ -18,6 +18,8 @@ type RequestBody = {
   id_operator: string;
   operator_password: string;
   currency?: string;
+  request_mode?: string;
+  sending_mode?: string;
 };
 
 export async function OPTIONS() {
@@ -39,8 +41,10 @@ export async function POST(req: NextRequest) {
       id_operator,
       operator_password,
       currency,
+      request_mode,
+      sending_mode,
     } = body as RequestBody;
-
+    console.log(user?.user_id);
     // Validation stricte
     if (
       !wix_site_id ||
@@ -69,6 +73,8 @@ export async function POST(req: NextRequest) {
           is_active: true,
           updated_at: new Date().toISOString(),
           user_id: user?.user_id,
+          request_mode: request_mode || "simple",
+          sending_mode: sending_mode || "link",
         },
         {
           onConflict: "wix_site_id",
