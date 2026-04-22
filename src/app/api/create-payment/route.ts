@@ -25,9 +25,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { wix_site_id, amount, title, redirect_url, currency } = body;
+    const { wix_site_id, amount, title, redirect_url } = body;
 
-    console.log("📥 Requête reçue:", { wix_site_id, amount, title, currency });
+    console.log("📥 Requête reçue:", { wix_site_id, amount, title });
 
     if (!wix_site_id || !amount) {
       return NextResponse.json(
@@ -44,12 +44,7 @@ export async function POST(request: NextRequest) {
       .eq("is_active", true)
       .single();
 
-    console.log(
-      "🏪 Merchant:",
-      merchant?.id,
-      "| Error:",
-      merchantError?.message,
-    );
+    console.log(merchant);
 
     if (merchantError || !merchant) {
       return NextResponse.json(
@@ -62,7 +57,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ── 3. Appel MiPS avec protection HTML ──
+    const currency = merchant.currency || "MUR";
+
+    // ── 3. Appel MiPS ──
     const id_order = `WIX-${Date.now()}-${uuidv4().slice(0, 8).toUpperCase()}`;
 
     const mipsPayload = {
@@ -73,13 +70,13 @@ export async function POST(request: NextRequest) {
         operator_password: merchant.operator_password,
       },
       request: {
-        request_mode: "simple",
-        sending_mode: "link",
+        request_mode: merchant.request_mode || "simple",
+        sending_mode: merchant.sending_mode || "link",
         request_title: title || "Paiement Wix",
       },
       initial_payment: {
         id_order,
-        currency: currency || merchant.currency || "MUR",
+        currency,
         amount: parseFloat(String(amount)),
       },
       iframe_behavior: {
@@ -89,7 +86,10 @@ export async function POST(request: NextRequest) {
 
     console.log("📤 Payload MiPS:", JSON.stringify(mipsPayload, null, 2));
 
+    // ── rawText déclaré ici pour être accessible partout ──
+    let rawText = "";
     let mipsResponse: Response;
+
     try {
       mipsResponse = await fetch(
         "https://api.mips.mu/api/create_payment_request",
@@ -103,8 +103,20 @@ export async function POST(request: NextRequest) {
           body: JSON.stringify(mipsPayload),
         },
       );
+
+      // ── Lu UNE SEULE FOIS ici ──
+      rawText = await mipsResponse.text();
+      console.log(
+        "📨 Réponse MiPS (status",
+        mipsResponse.status,
+        "):",
+        rawText.slice(0, 500),
+      );
     } catch (fetchError: any) {
-      console.error("❌ Fetch MiPS échoué:", fetchError.message);
+      console.error("❌ Fetch MiPS échoué:", {
+        message: fetchError.message,
+        code: fetchError.cause?.code,
+      });
       return NextResponse.json(
         {
           error: "Impossible de joindre l'API MiPS",
@@ -114,25 +126,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ── Lire la réponse comme texte d'abord ──
-    const rawText = await mipsResponse.text();
-    console.log(
-      "📨 Réponse MiPS brute (status",
-      mipsResponse.status,
-      "):",
-      rawText.slice(0, 300),
-    );
-
-    // ── Vérifier que c'est du JSON ──
+    // ── Parser le JSON depuis rawText déjà lu ──
     let mipsData: any;
     try {
       mipsData = JSON.parse(rawText);
     } catch {
-      // MiPS a retourné du HTML → problème credentials ou URL
       return NextResponse.json(
         {
           error: "MiPS a retourné une réponse invalide (non-JSON)",
-          status: mipsResponse.status,
+          status: mipsResponse!.status,
           preview: rawText.slice(0, 200),
           hint: "Vérifiez vos credentials MiPS (id_merchant, id_entity, id_operator, operator_password)",
         },
@@ -153,14 +155,14 @@ export async function POST(request: NextRequest) {
     }
 
     // ── 4. Sauvegarder en DB ──
-    const { data: payment, error: dbError } = await supabaseAdmin
+    const { error: dbError } = await supabaseAdmin
       .from("payments")
       .insert({
         merchant_id: merchant.id,
         wix_site_id,
         id_order,
         amount: parseFloat(String(amount)),
-        currency: currency || merchant.currency || "MUR",
+        currency,
         status: "pending",
         payment_link: mipsData.payment_link?.url,
         qr_code: mipsData.payment_link?.qr_code,
@@ -177,6 +179,7 @@ export async function POST(request: NextRequest) {
         payment_id: id_order,
         payment_link: mipsData.payment_link?.url,
         qr_code: mipsData.payment_link?.qr_code,
+        currency,
       },
       { headers: corsHeaders },
     );

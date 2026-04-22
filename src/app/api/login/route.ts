@@ -1,11 +1,14 @@
+// app/api/login/route.ts
 import { createClient } from "@/app/utils/server";
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 const SECRET = process.env.JWT_SECRET!;
+
+// ✅ Un seul objet corsHeaders
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "http://localhost:4321", // <- Une seule origine
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
@@ -31,24 +34,18 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (error || !user) {
-      return new NextResponse(
-        JSON.stringify({ error: "Utilisateur introuvable" }),
-        {
-          status: 404,
-          headers: corsHeaders,
-        },
+      return NextResponse.json(
+        { error: "Utilisateur introuvable" },
+        { status: 404, headers: corsHeaders },
       );
     }
 
     const isValid = await bcrypt.compare(password, user.password);
 
     if (!isValid) {
-      return new NextResponse(
-        JSON.stringify({ error: "Mot de passe incorrect" }),
-        {
-          status: 401,
-          headers: corsHeaders,
-        },
+      return NextResponse.json(
+        { error: "Mot de passe incorrect" },
+        { status: 401, headers: corsHeaders },
       );
     }
 
@@ -58,14 +55,14 @@ export async function POST(req: NextRequest) {
 
     console.timeEnd("login");
 
-    return new NextResponse(JSON.stringify({ success: true, token }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return NextResponse.json(
+      { success: true, token },
+      { status: 200, headers: corsHeaders },
+    );
   } catch (error: any) {
-    return new NextResponse(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: corsHeaders,
-    });
+    return NextResponse.json(
+      { error: error.message },
+      { status: 500, headers: corsHeaders },
+    );
   }
 }
