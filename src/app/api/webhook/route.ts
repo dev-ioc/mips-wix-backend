@@ -47,12 +47,9 @@ export default async function handler(
     if (!crypted_callback || !id_order) {
       return res.status(400).send("Missing params");
     }
-
-    // Vérification HMAC
     const secret = process.env.MIPS_WEBHOOK_SECRET;
 
     if (!secret) {
-      console.error("Missing MIPS_WEBHOOK_SECRET");
       return res.status(500).send("Server misconfigured");
     }
 
@@ -60,13 +57,6 @@ export default async function handler(
       .createHmac("sha256", secret)
       .update(rawBody)
       .digest("hex");
-
-    // Optionnel : signature header (si MiPS l’envoie un jour)
-    // const receivedSig = req.headers["x-mips-signature"];
-    // if (receivedSig && receivedSig !== expectedSig) {
-    //   return res.status(401).send("Invalid signature");
-    // }
-
     const isSuccess: boolean =
       crypted_callback !== "FAILED" && crypted_callback.length > 0;
 
@@ -87,18 +77,10 @@ export default async function handler(
       .single();
 
     if (error) {
-      console.error("Webhook DB error:", error);
       return res.status(500).send("DB error");
     }
-
-    console.log(
-      `Webhook: order ${id_order} → ${isSuccess ? "success" : "failed"}`,
-    );
-
     return res.status(200).send("success");
   } catch (error: any) {
-    console.error("Webhook error:", error);
-
     return res.status(500).send(error?.message || "Error");
   }
 }

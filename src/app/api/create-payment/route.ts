@@ -1,65 +1,44 @@
 import { supabaseAdmin } from "@/app/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-};
-
 export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: corsHeaders });
+  return new NextResponse(null, { status: 204 });
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // ── 1. Parse body ──
     let body: any;
     try {
       body = await request.json();
     } catch {
       return NextResponse.json(
         { error: "Body JSON invalide ou vide" },
-        { status: 400, headers: corsHeaders },
+        { status: 400 },
       );
     }
 
-    const { wix_site_id, amount, title, redirect_url } = body;
-
-    console.log("📥 Requête reçue:", { wix_site_id, amount, title });
-
-    if (!wix_site_id || !amount) {
+    const { public_key, amount, title, redirect_url } = body;
+    if (!public_key || !amount) {
       return NextResponse.json(
-        { error: "wix_site_id et amount sont requis" },
-        { status: 400, headers: corsHeaders },
+        { error: "public_key et amount sont requis" },
+        { status: 400 },
       );
     }
-
-    // ── 2. Récupérer marchand Supabase ──
     const { data: merchant, error: merchantError } = await supabaseAdmin
       .from("merchants")
       .select("*")
-      .eq("wix_site_id", wix_site_id)
+      .eq("public_key", public_key)
       .eq("is_active", true)
       .single();
 
-    console.log(merchant);
-
     if (merchantError || !merchant) {
       return NextResponse.json(
-        {
-          error: "Marchand non trouvé",
-          detail: merchantError?.message,
-          code: merchantError?.code,
-        },
-        { status: 404, headers: corsHeaders },
+        { error: "Marchand non trouvé. Vérifiez votre clé publique." },
+        { status: 404 },
       );
     }
 
     const currency = merchant.currency || "MUR";
-
-    // ── 3. Appel MiPS ──
     const id_order = `WIX-${Date.now()}-${uuidv4().slice(0, 8).toUpperCase()}`;
 
     const mipsPayload = {
@@ -83,10 +62,6 @@ export async function POST(request: NextRequest) {
         custom_redirection_url: redirect_url || "",
       },
     };
-
-    console.log("📤 Payload MiPS:", JSON.stringify(mipsPayload, null, 2));
-
-    // ── rawText déclaré ici pour être accessible partout ──
     let rawText = "";
     let mipsResponse: Response;
 
@@ -98,103 +73,82 @@ export async function POST(request: NextRequest) {
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
-            "user-agent": "WixMiPS/1.0",
+            "User-Agent": "WixMiPS/1.0",
           },
           body: JSON.stringify(mipsPayload),
         },
       );
 
-      // ── Lu UNE SEULE FOIS ici ──
       rawText = await mipsResponse.text();
-      console.log(
-        "📨 Réponse MiPS (status",
-        mipsResponse.status,
-        "):",
-        rawText.slice(0, 500),
-      );
-    } catch (fetchError: any) {
-      console.error("❌ Fetch MiPS échoué:", {
-        message: fetchError.message,
-        code: fetchError.cause?.code,
-      });
+    } catch (error: any) {
       return NextResponse.json(
-        {
-          error: "Impossible de joindre l'API MiPS",
-          details: fetchError.message,
-        },
-        { status: 503, headers: corsHeaders },
+        { error: "Impossible de contacter l'API MiPS", details: error.message },
+        { status: 503 },
       );
     }
 
-    // ── Parser le JSON depuis rawText déjà lu ──
     let mipsData: any;
     try {
       mipsData = JSON.parse(rawText);
     } catch {
       return NextResponse.json(
         {
-          error: "MiPS a retourné une réponse invalide (non-JSON)",
-          status: mipsResponse!.status,
-          preview: rawText.slice(0, 200),
-          hint: "Vérifiez vos credentials MiPS (id_merchant, id_entity, id_operator, operator_password)",
+          error: "Réponse invalide des credentials MiPS",
+          raw_response: rawText.slice(0, 200),
         },
-        { status: 502, headers: corsHeaders },
+        { status: 502 },
       );
     }
-
-    console.log("✅ MiPS data:", mipsData);
 
     if (mipsData.operation_status !== "success") {
       return NextResponse.json(
         {
-          error: mipsData.operation_details || "Erreur MiPS",
+          error:
+            mipsData.operation_details ||
+            "Erreur lors de la création du paiement",
           mips_response: mipsData,
         },
-        { status: 502, headers: corsHeaders },
+        { status: 502 },
       );
     }
-
-    // ── 4. Sauvegarder en DB ──
-    const { error: dbError } = await supabaseAdmin
-      .from("payments")
-      .insert({
+    try {
+      await supabaseAdmin.from("payments").insert({
         merchant_id: merchant.id,
-        wix_site_id,
-        id_order,
+        public_key: public_key,
+        id_order: id_order,
         amount: parseFloat(String(amount)),
-        currency,
+        currency: currency,
         status: "pending",
         payment_link: mipsData.payment_link?.url,
         qr_code: mipsData.payment_link?.qr_code,
-        request_title: title,
-      })
-      .select()
-      .single();
-
-    if (dbError) console.error("⚠️ DB save error (non-bloquant):", dbError);
-
-    return NextResponse.json(
-      {
-        success: true,
-        payment_id: id_order,
-        payment_link: mipsData.payment_link?.url,
-        qr_code: mipsData.payment_link?.qr_code,
-        currency,
-      },
-      { headers: corsHeaders },
-    );
+        request_title: title || "Paiement Wix",
+        created_at: new Date().toISOString(),
+      });
+    } catch (dbError) {
+      console.warn(
+        "Erreur lors de la sauvegarde en DB (non bloquante):",
+        dbError,
+      );
+    }
+    return NextResponse.json({
+      success: true,
+      payment_id: id_order,
+      payment_link: mipsData.payment_link?.url,
+      qr_code: mipsData.payment_link?.qr_code,
+      currency: currency,
+    });
   } catch (error: any) {
-    console.error("❌ Erreur générale:", error);
+    console.error("Erreur serveur interne:", error);
     return NextResponse.json(
-      { error: "Erreur serveur", details: error?.message },
-      { status: 500, headers: corsHeaders },
+      { error: "Erreur interne du serveur", details: error?.message },
+      { status: 500 },
     );
   }
 }
 
 export async function GET() {
   return NextResponse.json(
-    { error: "Method not allowed" },
-    { status: 405, headers: corsHeaders },
+    { error: "Method not allowed. Use POST instead." },
+    { status: 405 },
   );
 }

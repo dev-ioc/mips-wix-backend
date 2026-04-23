@@ -1,9 +1,8 @@
-// backend/app/api/merchant/save-credentials/route.ts
 import { supabaseAdmin } from "@/app/lib/supabase";
 import { authenticate } from "@/app/utils/auth";
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 
-// ✅ Configuration CORS dynamique
 const allowedOrigins = [
   "http://localhost:4321",
   "http://localhost:4322",
@@ -38,6 +37,35 @@ type RequestBody = {
   sending_mode?: string;
 };
 
+const generatePublicKey = (): string => {
+  const random = crypto.randomBytes(16).toString("hex");
+  return `pk_live_${random}`;
+};
+
+const generateUniquePublicKey = async (): Promise<string> => {
+  let public_key = generatePublicKey();
+  let isUnique = false;
+  let attempts = 0;
+  const maxAttempts = 5;
+
+  while (!isUnique && attempts < maxAttempts) {
+    const { data: existing } = await supabaseAdmin
+      .from("merchants")
+      .select("public_key")
+      .eq("public_key", public_key)
+      .maybeSingle();
+
+    if (!existing) {
+      isUnique = true;
+    } else {
+      public_key = generatePublicKey();
+      attempts++;
+    }
+  }
+
+  return public_key;
+};
+
 export async function OPTIONS(req: NextRequest) {
   const origin = req.headers.get("origin");
   return new NextResponse(null, {
@@ -64,10 +92,6 @@ export async function POST(req: NextRequest) {
       sending_mode,
     } = body as RequestBody;
 
-    console.log("📝 User ID:", user?.user_id);
-    console.log("🏪 Wix Site ID:", wix_site_id);
-
-    // Validation stricte
     if (
       !wix_site_id ||
       !id_merchant ||
@@ -81,7 +105,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Vérifier si les credentials existent déjà
     const { data: existingMerchant, error: findError } = await supabaseAdmin
       .from("merchants")
       .select("*")
@@ -93,13 +116,9 @@ export async function POST(req: NextRequest) {
     }
 
     let result;
+    let public_key = existingMerchant?.public_key; 
 
     if (existingMerchant) {
-      // Mise à jour des credentials existants
-      console.log(
-        "📦 Mise à jour des credentials existants pour:",
-        wix_site_id,
-      );
 
       const updateData = {
         id_merchant,
@@ -107,7 +126,6 @@ export async function POST(req: NextRequest) {
         id_operator,
         operator_password,
         updated_at: new Date().toISOString(),
-        // Mettre à jour les champs optionnels s'ils sont fournis
         ...(currency && { currency }),
         ...(request_mode && { request_mode }),
         ...(sending_mode && { sending_mode }),
@@ -119,11 +137,8 @@ export async function POST(req: NextRequest) {
         .eq("wix_site_id", wix_site_id)
         .select()
         .single();
-
-      console.log("✅ Credentials mis à jour");
     } else {
-      // Création de nouveaux credentials
-      console.log("🆕 Création de nouveaux credentials pour:", wix_site_id);
+      public_key = await generateUniquePublicKey();
 
       result = await supabaseAdmin
         .from("merchants")
@@ -135,6 +150,7 @@ export async function POST(req: NextRequest) {
           id_operator,
           operator_password,
           currency: currency || "MUR",
+          public_key, 
           is_active: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -144,8 +160,6 @@ export async function POST(req: NextRequest) {
         })
         .select()
         .single();
-
-      console.log("✅ Nouveaux credentials créés");
     }
 
     if (result.error || !result.data) {
@@ -155,11 +169,11 @@ export async function POST(req: NextRequest) {
         { status: 500, headers: getCorsHeaders(origin) },
       );
     }
-
     return NextResponse.json(
       {
         success: true,
         merchant_id: result.data.id,
+        public_key: public_key, 
         message: existingMerchant
           ? "Credentials mis à jour avec succès"
           : "Credentials sauvegardés avec succès",
