@@ -1,12 +1,6 @@
-import type { NextApiRequest, NextApiResponse } from "next";
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "../../lib/supabase";
 import crypto from "crypto";
-
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
 
 type PaymentStatus = "success" | "failed";
 
@@ -16,47 +10,53 @@ type WebhookPayload = {
   received_at: string;
 };
 
-async function getRawBody(req: NextApiRequest): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let data = "";
+// Désactiver le body parser par défaut pour cette route
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
-    req.on("data", (chunk: Buffer) => {
-      data += chunk.toString();
-    });
+async function getRawBody(req: NextRequest): Promise<string> {
+  const reader = req.body?.getReader();
+  if (!reader) return "";
 
-    req.on("end", () => resolve(data));
-    req.on("error", reject);
-  });
-}
+  let data = "";
+  const decoder = new TextDecoder();
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse,
-) {
-  if (req.method !== "POST") {
-    return res.status(405).end("Method not allowed");
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    data += decoder.decode(value);
   }
 
+  return data;
+}
+
+export async function POST(req: NextRequest) {
   try {
     const rawBody = await getRawBody(req);
 
+    // Pour une requête POST avec x-www-form-urlencoded
     const params = new URLSearchParams(rawBody);
     const crypted_callback = params.get("crypted_callback");
     const id_order = params.get("id_order");
 
     if (!crypted_callback || !id_order) {
-      return res.status(400).send("Missing params");
+      return NextResponse.json({ error: "Missing params" }, { status: 400 });
     }
+
     const secret = process.env.MIPS_WEBHOOK_SECRET;
 
     if (!secret) {
-      return res.status(500).send("Server misconfigured");
+      return NextResponse.json(
+        { error: "Server misconfigured" },
+        { status: 500 },
+      );
     }
 
     const expectedSig = crypto
       .createHmac("sha256", secret)
       .update(rawBody)
       .digest("hex");
+
     const isSuccess: boolean =
       crypted_callback !== "FAILED" && crypted_callback.length > 0;
 
@@ -77,10 +77,19 @@ export default async function handler(
       .single();
 
     if (error) {
-      return res.status(500).send("DB error");
+      return NextResponse.json({ error: "DB error" }, { status: 500 });
     }
-    return res.status(200).send("success");
+
+    return NextResponse.json({ message: "success" }, { status: 200 });
   } catch (error: any) {
-    return res.status(500).send(error?.message || "Error");
+    return NextResponse.json(
+      { error: error?.message || "Error" },
+      { status: 500 },
+    );
   }
+}
+
+// Optionnel : gérer les autres méthodes HTTP
+export async function GET() {
+  return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
 }
