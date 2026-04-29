@@ -12,8 +12,10 @@ const allowedOrigins = [
 
 const getCorsHeaders = (origin: string | null): Record<string, string> => {
   // Accepter TOUTES les origines Wix
-  const allowedOrigin = origin || "*";
-
+  const isWix =
+    origin?.includes(".wix.com") || origin?.includes(".wixsite.com");
+  const allowedOrigin =
+    origin && (allowedOrigins.includes(origin) || isWix) ? origin : "*";
   return {
     "Access-Control-Allow-Origin": allowedOrigin, // ← plus de filtre
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
