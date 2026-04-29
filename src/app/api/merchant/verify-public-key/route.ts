@@ -6,16 +6,16 @@ const allowedOrigins = [
   "http://localhost:4322",
   "http://localhost:3000",
   process.env.NEXT_PUBLIC_APP_URL,
+  "https://editor.wix.com",
+  "https://manage.wix.com",
 ].filter(Boolean) as string[];
 
 const getCorsHeaders = (origin: string | null): Record<string, string> => {
-  const allowedOrigin =
-    origin && allowedOrigins.includes(origin)
-      ? origin
-      : allowedOrigins[0] || "*";
+  // Accepter TOUTES les origines Wix
+  const allowedOrigin = origin || "*";
 
   return {
-    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Origin": allowedOrigin, // ← plus de filtre
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept",
     "Access-Control-Allow-Credentials": "true",
