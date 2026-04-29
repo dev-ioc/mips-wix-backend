@@ -4,9 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 
 const allowedOrigins = [
-  "http://localhost:4321",
-  "http://localhost:4322",
-  "http://localhost:3000",
+  "https://mips-payments.dev-mdg.workers.dev",
   process.env.NEXT_PUBLIC_APP_URL,
 ].filter(Boolean) as string[];
 

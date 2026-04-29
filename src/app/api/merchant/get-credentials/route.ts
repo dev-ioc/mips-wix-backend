@@ -4,9 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 // ✅ Configuration CORS - version avec valeurs par défaut
 const allowedOrigins = [
-  "http://localhost:4321",
-  "http://localhost:4322",
-  "http://localhost:3000",
+  "https://mips-payments.dev-mdg.workers.dev",
   process.env.NEXT_PUBLIC_APP_URL,
 ].filter(Boolean) as string[];
 

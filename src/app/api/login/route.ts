@@ -8,7 +8,7 @@ const SECRET = process.env.JWT_SECRET!;
 
 // ✅ Un seul objet corsHeaders
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "http://localhost:4321", // <- Une seule origine
+  "Access-Control-Allow-Origin": "https://mips-payments.dev-mdg.workers.dev", // <- Une seule origine
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
