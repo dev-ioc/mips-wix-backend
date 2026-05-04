@@ -20,10 +20,6 @@ export async function POST(request: NextRequest) {
 
     const {
       public_key,
-      id_merchant,
-      id_entity,
-      id_operator,
-      operator_password,
       currency: currencyOverride,
       sending_mode,
       request_mode,
@@ -38,12 +34,8 @@ export async function POST(request: NextRequest) {
 
     let merchantData: any;
 
-    if (id_merchant && id_entity && id_operator && operator_password) {
+    if (public_key) {
       merchantData = {
-        id_merchant,
-        id_entity,
-        id_operator,
-        operator_password,
         currency: currencyOverride || "MUR",
         sending_mode: sending_mode || "link",
         request_mode: request_mode || "simple",
