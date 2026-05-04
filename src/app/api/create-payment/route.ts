@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/app/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
+
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204 });
 }
@@ -17,40 +18,76 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { public_key, amount, title, redirect_url } = body;
-    if (!public_key || !amount) {
+    const {
+      public_key,
+      id_merchant,
+      id_entity,
+      id_operator,
+      operator_password,
+      currency: currencyOverride,
+      sending_mode,
+      request_mode,
+      amount,
+      title,
+      redirect_url,
+    } = body;
+
+    if (!amount) {
+      return NextResponse.json({ error: "amount est requis" }, { status: 400 });
+    }
+
+    let merchantData: any;
+
+    if (id_merchant && id_entity && id_operator && operator_password) {
+      merchantData = {
+        id_merchant,
+        id_entity,
+        id_operator,
+        operator_password,
+        currency: currencyOverride || "MUR",
+        sending_mode: sending_mode || "link",
+        request_mode: request_mode || "simple",
+        id: null,
+        public_key: null,
+      };
+    } else if (public_key) {
+      const { data: merchant, error } = await supabaseAdmin
+        .from("merchants")
+        .select("*")
+        .eq("public_key", public_key)
+        .eq("is_active", true)
+        .single();
+
+      if (error || !merchant) {
+        return NextResponse.json(
+          { error: "Marchand non trouvé. Vérifiez votre clé publique." },
+          { status: 404 },
+        );
+      }
+      merchantData = merchant;
+    } else {
       return NextResponse.json(
-        { error: "public_key et amount sont requis" },
+        {
+          error:
+            "public_key ou credentials directs (id_merchant, id_entity, id_operator, operator_password) sont requis",
+        },
         { status: 400 },
       );
     }
-    const { data: merchant, error: merchantError } = await supabaseAdmin
-      .from("merchants")
-      .select("*")
-      .eq("public_key", public_key)
-      .eq("is_active", true)
-      .single();
 
-    if (merchantError || !merchant) {
-      return NextResponse.json(
-        { error: "Marchand non trouvé. Vérifiez votre clé publique." },
-        { status: 404 },
-      );
-    }
-
-    const currency = merchant.currency || "MUR";
+    const currency = merchantData.currency || "MUR";
     const id_order = `WIX-${Date.now()}-${uuidv4().slice(0, 8).toUpperCase()}`;
 
     const mipsPayload = {
       authentify: {
-        id_merchant: merchant.id_merchant,
-        id_entity: merchant.id_entity,
-        id_operator: merchant.id_operator,
-        operator_password: merchant.operator_password,
+        id_merchant: merchantData.id_merchant,
+        id_entity: merchantData.id_entity,
+        id_operator: merchantData.id_operator,
+        operator_password: merchantData.operator_password,
       },
       request: {
-        request_mode: merchant.request_mode || "simple",
-        sending_mode: merchant.sending_mode || "link",
+        request_mode: merchantData.request_mode || "simple",
+        sending_mode: merchantData.sending_mode || "link",
         request_title: title || "Paiement Wix",
       },
       initial_payment: {
@@ -62,6 +99,7 @@ export async function POST(request: NextRequest) {
         custom_redirection_url: redirect_url || "",
       },
     };
+
     let rawText = "";
     let mipsResponse: Response;
 
@@ -78,7 +116,6 @@ export async function POST(request: NextRequest) {
           body: JSON.stringify(mipsPayload),
         },
       );
-
       rawText = await mipsResponse.text();
     } catch (error: any) {
       return NextResponse.json(
@@ -93,7 +130,7 @@ export async function POST(request: NextRequest) {
     } catch {
       return NextResponse.json(
         {
-          error: "Réponse invalide des credentials MiPS",
+          error: "Réponse invalide de l'API MiPS",
           raw_response: rawText.slice(0, 200),
         },
         { status: 502 },
@@ -113,11 +150,11 @@ export async function POST(request: NextRequest) {
     }
     try {
       await supabaseAdmin.from("payments").insert({
-        merchant_id: merchant.id,
-        public_key: public_key,
-        id_order: id_order,
+        merchant_id: merchantData.id || null,
+        public_key: merchantData.public_key || public_key || null,
+        id_order,
         amount: parseFloat(String(amount)),
-        currency: currency,
+        currency,
         status: "pending",
         payment_link: mipsData.payment_link?.url,
         qr_code: mipsData.payment_link?.qr_code,
@@ -125,17 +162,15 @@ export async function POST(request: NextRequest) {
         created_at: new Date().toISOString(),
       });
     } catch (dbError) {
-      console.warn(
-        "Erreur lors de la sauvegarde en DB (non bloquante):",
-        dbError,
-      );
+      console.warn("Erreur sauvegarde DB (non bloquante):", dbError);
     }
+
     return NextResponse.json({
       success: true,
       payment_id: id_order,
       payment_link: mipsData.payment_link?.url,
       qr_code: mipsData.payment_link?.qr_code,
-      currency: currency,
+      currency,
     });
   } catch (error: any) {
     console.error("Erreur serveur interne:", error);
