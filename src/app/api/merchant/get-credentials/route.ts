@@ -1,24 +1,21 @@
-// backend/app/api/merchant/get-credentials/route.ts
 import { supabaseAdmin } from "@/app/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 
-// ✅ Configuration CORS - version avec valeurs par défaut
 const allowedOrigins = [
   "https://mips-payments.dev-mdg.workers.dev",
   process.env.NEXT_PUBLIC_APP_URL,
 ].filter(Boolean) as string[];
 
 const getCorsHeaders = (origin: string | null): Record<string, string> => {
-  const allowedOrigin =
-    origin && allowedOrigins.includes(origin)
-      ? origin
-      : allowedOrigins[0] || "*";
+  const isAllowed =
+    !origin || origin === "null" || allowedOrigins.includes(origin);
 
   return {
-    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Origin": isAllowed
+      ? origin || "*"
+      : allowedOrigins[0],
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept",
-    "Access-Control-Allow-Credentials": "true",
     "Access-Control-Max-Age": "86400",
   };
 };
@@ -44,9 +41,36 @@ export async function OPTIONS(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   const origin = req.headers.get("origin");
+  const publicKey = req.nextUrl.searchParams.get("public_key");
 
   try {
-    // Récupérer le token depuis le header Authorization
+    if (publicKey) {
+      const { data, error } = await supabaseAdmin
+        .from("merchants")
+        .select("*")
+        .eq("public_key", publicKey)
+        .eq("is_active", true)
+        .single();
+
+      if (error || !data) {
+        return NextResponse.json(
+          { error: "Merchant non trouvé ou inactif" },
+          { status: 401, headers: getCorsHeaders(origin) },
+        );
+      }
+      return NextResponse.json(
+        {
+          configured: true,
+          merchant: {
+            currency: data.currency,
+            sending_mode: data.sending_mode,
+            request_mode: data.request_mode,
+          },
+        },
+        { status: 200, headers: getCorsHeaders(origin) },
+      );
+    }
+
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return NextResponse.json(
@@ -56,12 +80,9 @@ export async function GET(req: NextRequest) {
     }
 
     const token = authHeader.replace("Bearer ", "");
-
-    // Décoder le token pour obtenir l'userId
     let userId: string | null = null;
 
     try {
-      // Essayer de décoder le token JWT
       const base64Payload = token.split(".")[1];
       const payload = JSON.parse(atob(base64Payload));
       userId = payload.id || payload.userId || payload.user_id;
@@ -104,10 +125,7 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json(
-      {
-        configured: true,
-        merchant: data as Merchant,
-      },
+      { configured: true, merchant: data as Merchant },
       { status: 200, headers: getCorsHeaders(origin) },
     );
   } catch (error: any) {
