@@ -1,25 +1,41 @@
 import { supabaseAdmin } from "@/app/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 
-const allowedOrigins = [
-  "https://mips-payments.dev-mdg.workers.dev",
-  process.env.NEXT_PUBLIC_APP_URL,
-].filter(Boolean) as string[];
+// const allowedOrigins = [
+//   "https://mips-payments.dev-mdg.workers.dev",
+//   process.env.NEXT_PUBLIC_APP_URL,
+// ].filter(Boolean) as string[];
 
+// const getCorsHeaders = (origin: string | null): Record<string, string> => {
+//   const isAllowed =
+//     !origin || origin === "null" || allowedOrigins.includes(origin);
+
+//   return {
+//     "Access-Control-Allow-Origin": isAllowed
+//       ? origin || "*"
+//       : allowedOrigins[0],
+//     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+//     "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept",
+//     "Access-Control-Max-Age": "86400",
+//   };
+// };
 const getCorsHeaders = (origin: string | null): Record<string, string> => {
-  const isAllowed =
-    !origin || origin === "null" || allowedOrigins.includes(origin);
+  // Accepter toutes les origines Wix et votre dashboard
+  const isWixOrigin =
+    origin &&
+    (origin.endsWith(".wix.com") ||
+      origin.endsWith(".wixsite.com") ||
+      origin.endsWith(".wix-dev-center-test.org") ||
+      origin.endsWith(".editorx.com") ||
+      origin === "https://mips-payments.dev-mdg.workers.dev");
 
   return {
-    "Access-Control-Allow-Origin": isAllowed
-      ? origin || "*"
-      : allowedOrigins[0],
+    "Access-Control-Allow-Origin": isWixOrigin ? origin : origin || "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept",
     "Access-Control-Max-Age": "86400",
   };
 };
-
 type Merchant = {
   id: string;
   wix_site_id: string;
