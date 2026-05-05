@@ -2,17 +2,35 @@ import { supabaseAdmin } from "@/app/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+const allowedOrigins = [
+  "https://mips-payments.dev-mdg.workers.dev",
+  process.env.NEXT_PUBLIC_APP_URL,
+].filter(Boolean) as string[];
+
+const getCorsHeaders = (origin: string | null): Record<string, string> => {
+  const isAllowed =
+    !origin || origin === "null" || allowedOrigins.includes(origin);
+
+  return {
+    "Access-Control-Allow-Origin": isAllowed
+      ? origin || "*"
+      : allowedOrigins[0],
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept",
+    "Access-Control-Max-Age": "86400",
+  };
 };
 
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+export async function OPTIONS(req: NextRequest) {
+  const origin = req.headers.get("origin");
+  return new NextResponse(null, {
+    status: 204,
+    headers: getCorsHeaders(origin),
+  });
 }
 
 export async function POST(request: NextRequest) {
+  const origin = request.headers.get("origin");
   try {
     let body: any;
     try {
@@ -20,7 +38,7 @@ export async function POST(request: NextRequest) {
     } catch {
       return NextResponse.json(
         { error: "Body JSON invalide ou vide" },
-        { status: 400, headers: CORS_HEADERS },
+        { status: 400, headers: getCorsHeaders(origin) },
       );
     }
 
@@ -41,7 +59,7 @@ export async function POST(request: NextRequest) {
     if (!amount) {
       return NextResponse.json(
         { error: "amount est requis" },
-        { status: 400, headers: CORS_HEADERS },
+        { status: 400, headers: getCorsHeaders(origin) },
       );
     }
     let resolvedIdMerchant: string;
@@ -71,7 +89,7 @@ export async function POST(request: NextRequest) {
       if (error || !merchant) {
         return NextResponse.json(
           { error: "Marchand non trouvé. Vérifiez votre clé publique." },
-          { status: 404, headers: CORS_HEADERS },
+          { status: 404, headers: getCorsHeaders(origin) },
         );
       }
 
@@ -88,7 +106,7 @@ export async function POST(request: NextRequest) {
           error:
             "Credentials manquants (id_merchant + id_entity + operator_id + operator_password) ou public_key requis",
         },
-        { status: 400, headers: CORS_HEADERS },
+        { status: 400, headers: getCorsHeaders(origin) },
       );
     }
 
@@ -140,7 +158,7 @@ export async function POST(request: NextRequest) {
     } catch (error: any) {
       return NextResponse.json(
         { error: "Impossible de contacter l'API MiPS", details: error.message },
-        { status: 503, headers: CORS_HEADERS },
+        { status: 503, headers: getCorsHeaders(origin) },
       );
     }
 
@@ -153,7 +171,7 @@ export async function POST(request: NextRequest) {
           error: "Réponse invalide de l'API MiPS (non-JSON)",
           raw_response: rawText.slice(0, 300),
         },
-        { status: 502, headers: CORS_HEADERS },
+        { status: 502, headers: getCorsHeaders(origin) },
       );
     }
 
@@ -165,7 +183,7 @@ export async function POST(request: NextRequest) {
             "Erreur lors de la création du paiement",
           mips_response: mipsData,
         },
-        { status: 502, headers: CORS_HEADERS },
+        { status: 502, headers: getCorsHeaders(origin) },
       );
     }
 
@@ -193,13 +211,13 @@ export async function POST(request: NextRequest) {
         qr_code: mipsData.payment_link?.qr_code,
         currency: resolvedCurrency,
       },
-      { headers: CORS_HEADERS },
+      { headers: getCorsHeaders(origin) },
     );
   } catch (error: any) {
     console.error("Erreur serveur interne:", error);
     return NextResponse.json(
       { error: "Erreur interne du serveur", details: error?.message },
-      { status: 500, headers: CORS_HEADERS },
+      { status: 500, headers: getCorsHeaders(origin) },
     );
   }
 }
@@ -207,6 +225,6 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   return NextResponse.json(
     { error: "Method not allowed. Use POST instead." },
-    { status: 405, headers: CORS_HEADERS },
+    { status: 405, headers: getCorsHeaders(origin) },
   );
 }
