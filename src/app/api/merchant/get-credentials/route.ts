@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
             request_mode: data.request_mode,
             id_merchant: data.id_merchant,
             id_entity: data.id_entity,
-            operator_id: data.operator_id,
+            operator_id: data.id_operator,
             operator_password: data.operator_password,
           },
         },
