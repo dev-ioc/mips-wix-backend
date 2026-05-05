@@ -166,9 +166,12 @@ export async function POST(request: NextRequest) {
     try {
       mipsData = JSON.parse(rawText);
     } catch {
+      console.log("[create-payment] Status MiPS:", mipsResponse.status);
+      console.log("[create-payment] Raw MiPS:", rawText.slice(0, 500));
       return NextResponse.json(
         {
           error: "Réponse invalide de l'API MiPS (non-JSON)",
+          http_status: mipsResponse.status,
           raw_response: rawText.slice(0, 300),
         },
         { status: 502, headers: getCorsHeaders(origin) },
