@@ -140,7 +140,9 @@ export async function POST(request: NextRequest) {
     );
     let rawText = "";
     let mipsResponse: Response;
-
+    const basicAuth = Buffer.from(
+      `${resolvedIdOperator}:${resolvedOperatorPassword}`,
+    ).toString("base64");
     try {
       mipsResponse = await fetch(
         "https://api.mips.mu/api/create_payment_request",
@@ -149,6 +151,9 @@ export async function POST(request: NextRequest) {
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
+            Authorization: `Basic ${basicAuth}`,
+            "user-agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.78 Safari/537.36",
           },
           body: JSON.stringify(mipsPayload),
         },
