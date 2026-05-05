@@ -143,6 +143,12 @@ export async function POST(request: NextRequest) {
     const basicAuth = Buffer.from(
       `${resolvedIdOperator}:${resolvedOperatorPassword}`,
     ).toString("base64");
+
+    console.log(
+      "[create-payment] Basic Auth string:",
+      `${resolvedIdOperator}:${resolvedOperatorPassword}`,
+    );
+    console.log("[create-payment] Basic Auth header:", `Basic ${basicAuth}`);
     try {
       mipsResponse = await fetch(
         "https://api.mips.mu/api/create_payment_request",
