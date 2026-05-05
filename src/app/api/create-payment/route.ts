@@ -2,8 +2,14 @@ import { supabaseAdmin } from "@/app/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
 export async function OPTIONS() {
-  return new NextResponse(null, { status: 204 });
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
 }
 
 export async function POST(request: NextRequest) {
@@ -14,12 +20,16 @@ export async function POST(request: NextRequest) {
     } catch {
       return NextResponse.json(
         { error: "Body JSON invalide ou vide" },
-        { status: 400 },
+        { status: 400, headers: CORS_HEADERS },
       );
     }
 
     const {
       public_key,
+      id_merchant,
+      id_entity,
+      operator_id,
+      operator_password,
       currency: currencyOverride,
       sending_mode,
       request_mode,
@@ -29,19 +39,27 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!amount) {
-      return NextResponse.json({ error: "amount est requis" }, { status: 400 });
+      return NextResponse.json(
+        { error: "amount est requis" },
+        { status: 400, headers: CORS_HEADERS },
+      );
     }
+    let resolvedIdMerchant: string;
+    let resolvedIdEntity: string;
+    let resolvedIdOperator: string;
+    let resolvedOperatorPassword: string;
+    let resolvedCurrency: string;
+    let resolvedSendingMode: string;
+    let resolvedRequestMode: string;
 
-    let merchantData: any;
-
-    if (public_key) {
-      merchantData = {
-        currency: currencyOverride || "MUR",
-        sending_mode: sending_mode || "link",
-        request_mode: request_mode || "simple",
-        id: null,
-        public_key: null,
-      };
+    if (id_merchant && id_entity && operator_id && operator_password) {
+      resolvedIdMerchant = id_merchant;
+      resolvedIdEntity = id_entity;
+      resolvedIdOperator = operator_id;
+      resolvedOperatorPassword = operator_password;
+      resolvedCurrency = currencyOverride || "MUR";
+      resolvedSendingMode = sending_mode || "link";
+      resolvedRequestMode = request_mode || "simple";
     } else if (public_key) {
       const { data: merchant, error } = await supabaseAdmin
         .from("merchants")
@@ -53,38 +71,44 @@ export async function POST(request: NextRequest) {
       if (error || !merchant) {
         return NextResponse.json(
           { error: "Marchand non trouvé. Vérifiez votre clé publique." },
-          { status: 404 },
+          { status: 404, headers: CORS_HEADERS },
         );
       }
-      merchantData = merchant;
+
+      resolvedIdMerchant = merchant.id_merchant;
+      resolvedIdEntity = merchant.id_entity;
+      resolvedIdOperator = merchant.operator_id;
+      resolvedOperatorPassword = merchant.operator_password;
+      resolvedCurrency = currencyOverride || merchant.currency || "MUR";
+      resolvedSendingMode = sending_mode || merchant.sending_mode || "link";
+      resolvedRequestMode = request_mode || merchant.request_mode || "simple";
     } else {
       return NextResponse.json(
         {
           error:
-            "public_key ou credentials directs (id_merchant, id_entity, id_operator, operator_password) sont requis",
+            "Credentials manquants (id_merchant + id_entity + operator_id + operator_password) ou public_key requis",
         },
-        { status: 400 },
+        { status: 400, headers: CORS_HEADERS },
       );
     }
 
-    const currency = merchantData.currency || "MUR";
     const id_order = `WIX-${Date.now()}-${uuidv4().slice(0, 8).toUpperCase()}`;
 
     const mipsPayload = {
       authentify: {
-        id_merchant: merchantData.id_merchant,
-        id_entity: merchantData.id_entity,
-        id_operator: merchantData.id_operator,
-        operator_password: merchantData.operator_password,
+        id_merchant: resolvedIdMerchant,
+        id_entity: resolvedIdEntity,
+        id_operator: resolvedIdOperator,
+        operator_password: resolvedOperatorPassword,
       },
       request: {
-        request_mode: merchantData.request_mode || "simple",
-        sending_mode: merchantData.sending_mode || "link",
+        request_mode: resolvedRequestMode,
+        sending_mode: resolvedSendingMode,
         request_title: title || "Paiement Wix",
       },
       initial_payment: {
         id_order,
-        currency,
+        currency: resolvedCurrency,
         amount: parseFloat(String(amount)),
       },
       iframe_behavior: {
@@ -92,6 +116,10 @@ export async function POST(request: NextRequest) {
       },
     };
 
+    console.log(
+      "[create-payment] Payload MiPS:",
+      JSON.stringify(mipsPayload, null, 2),
+    );
     let rawText = "";
     let mipsResponse: Response;
 
@@ -103,16 +131,16 @@ export async function POST(request: NextRequest) {
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
-            "User-Agent": "WixMiPS/1.0",
           },
           body: JSON.stringify(mipsPayload),
         },
       );
       rawText = await mipsResponse.text();
+      console.log("[create-payment] Réponse MiPS raw:", rawText.slice(0, 300));
     } catch (error: any) {
       return NextResponse.json(
         { error: "Impossible de contacter l'API MiPS", details: error.message },
-        { status: 503 },
+        { status: 503, headers: CORS_HEADERS },
       );
     }
 
@@ -122,10 +150,10 @@ export async function POST(request: NextRequest) {
     } catch {
       return NextResponse.json(
         {
-          error: "Réponse invalide de l'API MiPS",
-          raw_response: rawText.slice(0, 200),
+          error: "Réponse invalide de l'API MiPS (non-JSON)",
+          raw_response: rawText.slice(0, 300),
         },
-        { status: 502 },
+        { status: 502, headers: CORS_HEADERS },
       );
     }
 
@@ -137,16 +165,16 @@ export async function POST(request: NextRequest) {
             "Erreur lors de la création du paiement",
           mips_response: mipsData,
         },
-        { status: 502 },
+        { status: 502, headers: CORS_HEADERS },
       );
     }
+
     try {
       await supabaseAdmin.from("payments").insert({
-        merchant_id: merchantData.id || null,
-        public_key: merchantData.public_key || public_key || null,
+        public_key: public_key || null,
         id_order,
         amount: parseFloat(String(amount)),
-        currency,
+        currency: resolvedCurrency,
         status: "pending",
         payment_link: mipsData.payment_link?.url,
         qr_code: mipsData.payment_link?.qr_code,
@@ -157,18 +185,21 @@ export async function POST(request: NextRequest) {
       console.warn("Erreur sauvegarde DB (non bloquante):", dbError);
     }
 
-    return NextResponse.json({
-      success: true,
-      payment_id: id_order,
-      payment_link: mipsData.payment_link?.url,
-      qr_code: mipsData.payment_link?.qr_code,
-      currency,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        payment_id: id_order,
+        payment_link: mipsData.payment_link?.url,
+        qr_code: mipsData.payment_link?.qr_code,
+        currency: resolvedCurrency,
+      },
+      { headers: CORS_HEADERS },
+    );
   } catch (error: any) {
     console.error("Erreur serveur interne:", error);
     return NextResponse.json(
       { error: "Erreur interne du serveur", details: error?.message },
-      { status: 500 },
+      { status: 500, headers: CORS_HEADERS },
     );
   }
 }
@@ -176,6 +207,6 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   return NextResponse.json(
     { error: "Method not allowed. Use POST instead." },
-    { status: 405 },
+    { status: 405, headers: CORS_HEADERS },
   );
 }
