@@ -2,19 +2,18 @@ import { supabaseAdmin } from "@/app/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 
-const allowedOrigins = [
-  "https://mips-payments.dev-mdg.workers.dev",
-  process.env.NEXT_PUBLIC_APP_URL,
-].filter(Boolean) as string[];
-
 const getCorsHeaders = (origin: string | null): Record<string, string> => {
-  const isAllowed =
-    !origin || origin === "null" || allowedOrigins.includes(origin);
+  const isWixOrigin =
+    origin &&
+    (origin.endsWith(".wix.com") ||
+      origin.endsWith(".wixsite.com") ||
+      origin.endsWith(".wix-dev-center-test.org") ||
+      origin.endsWith(".editorx.com") ||
+      origin.endsWith(".wixstudio.com") ||
+      origin === "https://mips-payments.dev-mdg.workers.dev");
 
   return {
-    "Access-Control-Allow-Origin": isAllowed
-      ? origin || "*"
-      : allowedOrigins[0],
+    "Access-Control-Allow-Origin": isWixOrigin ? origin : origin || "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept",
     "Access-Control-Max-Age": "86400",
