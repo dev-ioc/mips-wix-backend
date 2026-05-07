@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
         .update(updateData)
         .eq("wix_site_id", wix_site_id)
         .select()
-        .single();
+        .maybeSingle();
     } else {
       public_key = await generateUniquePublicKey();
 
