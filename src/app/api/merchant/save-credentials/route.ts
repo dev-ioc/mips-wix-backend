@@ -139,9 +139,9 @@ export async function POST(req: NextRequest) {
       result = await supabaseAdmin
         .from("merchants")
         .update(updateData)
-        .eq("wix_site_id", wix_site_id)
+        .eq("id_merchant", id_merchant)
         .select()
-        .maybeSingle();
+        .single();
     } else {
       public_key = await generateUniquePublicKey();
 
