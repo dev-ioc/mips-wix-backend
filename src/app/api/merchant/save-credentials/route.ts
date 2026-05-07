@@ -130,6 +130,7 @@ export async function POST(req: NextRequest) {
         operator_password,
         auth_basic_username,
         auth_basic_password,
+        public_key,
         updated_at: new Date().toISOString(),
         ...(currency && { currency }),
         ...(request_mode && { request_mode }),
