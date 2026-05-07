@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
     }
 
     const id_order = `WIX-${Date.now()}-${uuidv4().slice(0, 8).toUpperCase()}`;
-
+    console.log("operator id :", resolvedIdOperator);
     const mipsPayload = {
       authentify: {
         id_merchant: resolvedIdMerchant,
