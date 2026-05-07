@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
 
       resolvedIdMerchant = merchant.id_merchant;
       resolvedIdEntity = merchant.id_entity;
-      resolvedIdOperator = merchant.operator_id;
+      resolvedIdOperator = merchant.id_operator;
       resolvedOperatorPassword = merchant.operator_password;
       resolvedCurrency = currencyOverride || merchant.currency || "MUR";
       resolvedSendingMode = sending_mode || merchant.sending_mode || "link";
