@@ -33,6 +33,8 @@ type RequestBody = {
   currency?: string;
   request_mode?: string;
   sending_mode?: string;
+  auth_basic_username?: string;
+  auth_basic_password?: string;
 };
 
 const generatePublicKey = (): string => {
@@ -88,6 +90,8 @@ export async function POST(req: NextRequest) {
       currency,
       request_mode,
       sending_mode,
+      auth_basic_username,
+      auth_basic_password,
     } = body as RequestBody;
 
     if (
@@ -95,7 +99,9 @@ export async function POST(req: NextRequest) {
       !id_merchant ||
       !id_entity ||
       !id_operator ||
-      !operator_password
+      !operator_password ||
+      !auth_basic_username ||
+      !auth_basic_password
     ) {
       return NextResponse.json(
         { error: "Tous les champs credentials sont requis" },
@@ -114,15 +120,16 @@ export async function POST(req: NextRequest) {
     }
 
     let result;
-    let public_key = existingMerchant?.public_key; 
+    let public_key = existingMerchant?.public_key;
 
     if (existingMerchant) {
-
       const updateData = {
         id_merchant,
         id_entity,
         id_operator,
         operator_password,
+        auth_basic_username,
+        auth_basic_password,
         updated_at: new Date().toISOString(),
         ...(currency && { currency }),
         ...(request_mode && { request_mode }),
@@ -148,13 +155,15 @@ export async function POST(req: NextRequest) {
           id_operator,
           operator_password,
           currency: currency || "MUR",
-          public_key, 
+          public_key,
           is_active: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           user_id: user?.user_id,
           request_mode: request_mode || "simple",
           sending_mode: sending_mode || "link",
+          auth_basic_username,
+          auth_basic_password,
         })
         .select()
         .single();
@@ -171,7 +180,7 @@ export async function POST(req: NextRequest) {
       {
         success: true,
         merchant_id: result.data.id,
-        public_key: public_key, 
+        public_key: public_key,
         message: existingMerchant
           ? "Credentials mis à jour avec succès"
           : "Credentials sauvegardés avec succès",

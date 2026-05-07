@@ -1,24 +1,6 @@
 import { supabaseAdmin } from "@/app/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 
-// const allowedOrigins = [
-//   "https://mips-payments.dev-mdg.workers.dev",
-//   process.env.NEXT_PUBLIC_APP_URL,
-// ].filter(Boolean) as string[];
-
-// const getCorsHeaders = (origin: string | null): Record<string, string> => {
-//   const isAllowed =
-//     !origin || origin === "null" || allowedOrigins.includes(origin);
-
-//   return {
-//     "Access-Control-Allow-Origin": isAllowed
-//       ? origin || "*"
-//       : allowedOrigins[0],
-//     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-//     "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept",
-//     "Access-Control-Max-Age": "86400",
-//   };
-// };
 const getCorsHeaders = (origin: string | null): Record<string, string> => {
   // Accepter toutes les origines Wix et votre dashboard
   const isWixOrigin =
@@ -85,6 +67,8 @@ export async function GET(req: NextRequest) {
             id_entity: data.id_entity,
             operator_id: data.id_operator,
             operator_password: data.operator_password,
+            auth_basic_username: data.auth_basic_username,
+            auth_basic_password: data.auth_basic_password,
           },
         },
         { status: 200, headers: getCorsHeaders(origin) },

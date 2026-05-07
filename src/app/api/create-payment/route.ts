@@ -53,6 +53,8 @@ export async function POST(request: NextRequest) {
       amount,
       title,
       redirect_url,
+      auth_basic_username,
+      auth_basic_password,
     } = body;
 
     if (!amount) {
@@ -68,8 +70,17 @@ export async function POST(request: NextRequest) {
     let resolvedCurrency: string;
     let resolvedSendingMode: string;
     let resolvedRequestMode: string;
+    let resolvedAuthBasicUsername: string;
+    let resolvedAuthBasicPassword: string;
 
-    if (id_merchant && id_entity && operator_id && operator_password) {
+    if (
+      id_merchant &&
+      id_entity &&
+      operator_id &&
+      operator_password &&
+      auth_basic_username &&
+      auth_basic_password
+    ) {
       resolvedIdMerchant = id_merchant;
       resolvedIdEntity = id_entity;
       resolvedIdOperator = operator_id;
@@ -77,6 +88,8 @@ export async function POST(request: NextRequest) {
       resolvedCurrency = currencyOverride || "MUR";
       resolvedSendingMode = sending_mode || "link";
       resolvedRequestMode = request_mode || "simple";
+      resolvedAuthBasicUsername = auth_basic_username;
+      resolvedAuthBasicPassword = auth_basic_password;
     } else if (public_key) {
       const { data: merchant, error } = await supabaseAdmin
         .from("merchants")
@@ -99,6 +112,10 @@ export async function POST(request: NextRequest) {
       resolvedCurrency = currencyOverride || merchant.currency || "MUR";
       resolvedSendingMode = sending_mode || merchant.sending_mode || "link";
       resolvedRequestMode = request_mode || merchant.request_mode || "simple";
+      resolvedAuthBasicUsername =
+        auth_basic_username || merchant.auth_basic_username;
+      resolvedAuthBasicPassword =
+        auth_basic_password || merchant.auth_basic_password;
     } else {
       return NextResponse.json(
         {
@@ -179,15 +196,13 @@ export async function POST(request: NextRequest) {
     );
     let rawText = "";
     let mipsResponse: Response;
-    const authBasicUsername = "test_wix_merchant_406971";
-    const authBasicPassword = "73a8e2f4bf87a7f3f16c";
     const basicAuth = Buffer.from(
-      `${authBasicUsername}:${authBasicPassword}`,
+      `${resolvedAuthBasicUsername}:${resolvedAuthBasicPassword}`,
     ).toString("base64");
 
     console.log(
       "[create-payment] Basic Auth string:",
-      `${authBasicUsername}:${authBasicPassword}`,
+      `${resolvedAuthBasicUsername}:${resolvedAuthBasicPassword}`,
     );
     console.log("[create-payment] Basic Auth header:", `Basic ${basicAuth}`);
     try {
