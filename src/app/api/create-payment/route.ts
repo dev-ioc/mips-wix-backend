@@ -139,13 +139,15 @@ export async function POST(request: NextRequest) {
     );
     let rawText = "";
     let mipsResponse: Response;
+    const authBasicUsername = "test_wix_merchant_406971";
+    const authBasicPassword = "73a8e2f4bf87a7f3f16c";
     const basicAuth = Buffer.from(
-      `${resolvedIdOperator}:${resolvedOperatorPassword}`,
+      `${authBasicUsername}:${authBasicPassword}`,
     ).toString("base64");
 
     console.log(
       "[create-payment] Basic Auth string:",
-      `${resolvedIdOperator}:${resolvedOperatorPassword}`,
+      `${authBasicUsername}:${authBasicPassword}`,
     );
     console.log("[create-payment] Basic Auth header:", `Basic ${basicAuth}`);
     try {
