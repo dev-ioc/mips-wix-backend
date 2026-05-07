@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
     const { data: existingMerchant, error: findError } = await supabaseAdmin
       .from("merchants")
       .select("*")
-      .eq("wix_site_id", wix_site_id)
+      .eq("id_merchant", id_merchant)
       .maybeSingle();
 
     if (findError && findError.code !== "PGRST116") {

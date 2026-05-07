@@ -104,7 +104,7 @@ export async function GET(req: NextRequest) {
         { status: 400, headers: getCorsHeaders(origin) },
       );
     }
-    console.log("userId:", userId);
+    // console.log("userId:", userId);
     const { data, error } = await supabaseAdmin
       .from("merchants")
       .select("*")
