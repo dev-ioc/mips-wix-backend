@@ -122,6 +122,46 @@ export async function POST(request: NextRequest) {
         request_mode: resolvedRequestMode,
         sending_mode: resolvedSendingMode,
         request_title: title || "Paiement Wix",
+        options: "warranty",
+        client_details: {
+          first_name: "KARIJA",
+          last_name: "Andriatsilefilaza",
+          client_email: "dev_mdg@caspeo.fr",
+          phone_number: "0346570207",
+        },
+        client_other_data: [
+          {
+            other_data_short_id: "color_of_eyes",
+            other_data_value: "brown",
+          },
+        ],
+        order_other_data: [
+          {
+            other_data_short_id: "color_of_car",
+            other_data_value: "green",
+          },
+        ],
+        max_amount_total: 999,
+        max_amount_per_claim: 0,
+        max_frequency: 0,
+        max_date: "2026-08-24",
+        deposit_amount: "150.25",
+        balance_pattern: [
+          {
+            balance_number: 5,
+            balance_mode: "auto",
+            condition: '"Upon request" or "2026-05-25"',
+          },
+        ],
+        membership: {
+          interval: 1,
+          frequency: "monthly",
+          start_date: "2026-05-18",
+          end_date: "2026-05-18",
+          day_to_process: 5,
+          membership_amount: 0,
+        },
+        client_account_number: "string",
       },
       initial_payment: {
         id_order,
