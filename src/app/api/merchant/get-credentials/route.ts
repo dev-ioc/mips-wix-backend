@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
           { status: 401, headers: getCorsHeaders(origin) },
         );
       }
-      console.log("data:", data);
+      console.log("data modif :", data);
       return NextResponse.json(
         {
           configured: true,
