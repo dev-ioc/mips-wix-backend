@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
       JSON.stringify(mipsPayload, null, 2),
     );
     const mipsResponse = await fetch(
-      "https://api.mips.mu/api/create_payment_request",
+      "https://api.mips.mu/api/load_payment_zone",
       {
         method: "POST",
         headers: {
@@ -138,13 +138,26 @@ export async function POST(request: NextRequest) {
     if (mipsData.operation_status !== "success") {
       return NextResponse.json(
         {
-          error: mipsData.operation_details || "Erreur création paiement",
+          error: mipsData.operation_details || "Erreur cr\u00e9ation paiement",
           mips_response: mipsData,
         },
         { status: 502, headers: getCorsHeaders(origin) },
       );
     }
+    const iframeHtml =
+      mipsData.iframe_html || mipsData.payment_zone || mipsData.html || null;
 
+    const iframeUrl = mipsData.iframe_url || mipsData.payment_url || null;
+
+    const fallbackUrl = mipsData.payment_link?.url || null;
+    const fallbackQr = mipsData.payment_link?.qr_code || null;
+    console.log(
+      "[load-payment-zone] Champs disponibles:",
+      Object.keys(mipsData),
+    );
+    console.log("[load-payment-zone] iframe_html:", !!iframeHtml);
+    console.log("[load-payment-zone] iframe_url:", iframeUrl);
+    console.log("[load-payment-zone] fallback_url:", fallbackUrl);
     try {
       await supabaseAdmin.from("payments").insert({
         public_key: public_key || null,
@@ -163,9 +176,11 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         payment_id: id_order,
-        iframe_html:
-          mipsData.iframe_html || mipsData.payment_zone || mipsData.html,
-        iframe_url: mipsData.iframe_url || mipsData.payment_url,
+        iframe_html: iframeHtml,
+        iframe_url: iframeUrl,
+        payment_link: fallbackUrl,
+        qr_code: fallbackQr,
+        mode: iframeHtml || iframeUrl ? "iframe" : "redirect",
       },
       { headers: getCorsHeaders(origin) },
     );
