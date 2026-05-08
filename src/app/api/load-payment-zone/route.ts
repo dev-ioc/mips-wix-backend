@@ -1,3 +1,4 @@
+// app/api/load-payment-zone/route.ts
 import { supabaseAdmin } from "@/app/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
@@ -11,7 +12,6 @@ const getCorsHeaders = (origin: string | null): Record<string, string> => {
       origin.endsWith(".editorx.com") ||
       origin.endsWith(".wixstudio.com") ||
       origin === "https://mips-payments.dev-mdg.workers.dev");
-
   return {
     "Access-Control-Allow-Origin": isWixOrigin ? origin : origin || "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
@@ -37,7 +37,6 @@ export async function POST(request: NextRequest) {
       amount,
       title,
       currency: currencyOverride,
-      sending_mode,
       request_mode,
       redirect_url,
       callback_url,
@@ -50,6 +49,7 @@ export async function POST(request: NextRequest) {
         { status: 400, headers: getCorsHeaders(origin) },
       );
     }
+
     const { data: merchant, error } = await supabaseAdmin
       .from("merchants")
       .select("*")
@@ -59,12 +59,12 @@ export async function POST(request: NextRequest) {
 
     if (error || !merchant) {
       return NextResponse.json(
-        { error: "Marchand non trouvé. Vérifiez votre clé publique." },
+        { error: "Marchand non trouv\u00e9." },
         { status: 404, headers: getCorsHeaders(origin) },
       );
     }
+    const id_order = `WIX${Date.now().toString().slice(-10)}${uuidv4().slice(0, 6).toUpperCase()}`;
 
-    const id_order = `WIX-${Date.now()}-${uuidv4().slice(0, 8).toUpperCase()}`;
     const basicAuth = Buffer.from(
       `${merchant.auth_basic_username}:${merchant.auth_basic_password}`,
     ).toString("base64");
@@ -75,37 +75,38 @@ export async function POST(request: NextRequest) {
         id_operator: merchant.id_operator,
         operator_password: merchant.operator_password,
       },
-      request: {
-        request_mode: request_mode || merchant.request_mode || "simple",
-        sending_mode: "iframe",
-        request_title: title || "Paiement",
-        options: "warranty",
-        client_details: {
-          first_name: customer?.first_name || "",
-          last_name: customer?.last_name || "",
-          client_email: customer?.client_email || "",
-          phone_number: customer?.phone_number || "",
-        },
-      },
-      initial_payment: {
+      order: {
         id_order,
         currency: currencyOverride || merchant.currency || "MUR",
         amount: parseFloat(String(amount)),
       },
+      request_mode: request_mode || merchant.request_mode || "simple",
+      touchpoint: "web",
       iframe_behavior: {
         custom_redirection_url: redirect_url || "",
-        imn_callback_url:
-          callback_url ||
-          `${process.env.NEXT_PUBLIC_APP_URL}/api/payment-callback`,
+        language: "FR",
       },
+      additional_params: [
+        { param_name: "first_name", param_value: customer?.first_name || "" },
+        { param_name: "last_name", param_value: customer?.last_name || "" },
+        {
+          param_name: "phone_number",
+          param_value: customer?.phone_number || "",
+        },
+        {
+          param_name: "client_email",
+          param_value: customer?.client_email || "",
+        },
+      ],
     };
 
     console.log(
       "[load-payment-zone] Payload:",
       JSON.stringify(mipsPayload, null, 2),
     );
+
     const mipsResponse = await fetch(
-      "https://api.mips.mu/api/create_payment_request",
+      "https://api.mips.mu/api/load_payment_zone",
       {
         method: "POST",
         headers: {
@@ -113,14 +114,14 @@ export async function POST(request: NextRequest) {
           Accept: "application/json",
           Authorization: `Basic ${basicAuth}`,
           "user-agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.78 Safari/537.36",
         },
         body: JSON.stringify(mipsPayload),
       },
     );
 
     const rawText = await mipsResponse.text();
-    console.log("[load-payment-zone] Réponse MiPS raw:", rawText.slice(0, 500));
+    console.log("[load-payment-zone] Reponse MiPS raw:", rawText.slice(0, 800));
 
     let mipsData: any;
     try {
@@ -128,36 +129,30 @@ export async function POST(request: NextRequest) {
     } catch {
       return NextResponse.json(
         {
-          error: "Réponse invalide de l'API MiPS",
-          http_status: mipsResponse.status,
+          error: "R\u00e9ponse invalide MiPS",
           raw_response: rawText.slice(0, 300),
         },
         { status: 502, headers: getCorsHeaders(origin) },
       );
     }
-    if (mipsData.operation_status !== "success") {
+
+    const operationStatus =
+      mipsData.answer?.operation_status || mipsData.operation_status;
+    const paymentZoneData = mipsData.answer?.payment_zone_data || null;
+
+    console.log("[load-payment-zone] operation_status:", operationStatus);
+    console.log(
+      "[load-payment-zone] payment_zone_data present:",
+      !!paymentZoneData,
+    );
+
+    if (operationStatus !== "success") {
       return NextResponse.json(
-        {
-          error: mipsData.operation_details || "Erreur cr\u00e9ation paiement",
-          mips_response: mipsData,
-        },
+        { error: "Erreur cr\u00e9ation paiement", mips_response: mipsData },
         { status: 502, headers: getCorsHeaders(origin) },
       );
     }
-    const iframeHtml =
-      mipsData.iframe_html || mipsData.payment_zone || mipsData.html || null;
 
-    const iframeUrl = mipsData.iframe_url || mipsData.payment_url || null;
-
-    const fallbackUrl = mipsData.payment_link?.url || null;
-    const fallbackQr = mipsData.payment_link?.qr_code || null;
-    console.log(
-      "[load-payment-zone] Champs disponibles:",
-      Object.keys(mipsData),
-    );
-    console.log("[load-payment-zone] iframe_html:", !!iframeHtml);
-    console.log("[load-payment-zone] iframe_url:", iframeUrl);
-    console.log("[load-payment-zone] fallback_url:", fallbackUrl);
     try {
       await supabaseAdmin.from("payments").insert({
         public_key: public_key || null,
@@ -169,18 +164,15 @@ export async function POST(request: NextRequest) {
         created_at: new Date().toISOString(),
       });
     } catch (dbError) {
-      console.warn("Erreur sauvegarde DB (non bloquante):", dbError);
+      console.warn("Erreur DB (non bloquante):", dbError);
     }
 
     return NextResponse.json(
       {
         success: true,
         payment_id: id_order,
-        iframe_html: iframeHtml,
-        iframe_url: iframeUrl,
-        payment_link: fallbackUrl,
-        qr_code: fallbackQr,
-        mode: iframeHtml || iframeUrl ? "iframe" : "redirect",
+        iframe_html: paymentZoneData,
+        mode: paymentZoneData ? "iframe" : "fallback",
       },
       { headers: getCorsHeaders(origin) },
     );
