@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
       JSON.stringify(mipsPayload, null, 2),
     );
     const mipsResponse = await fetch(
-      "https://api.mips.mu/api/load_payment_zone",
+      "https://api.mips.mu/api/create_payment_request",
       {
         method: "POST",
         headers: {
