@@ -123,7 +123,8 @@ export async function POST(request: NextRequest) {
 
     const { error: dbError } = await supabaseAdmin
       .from("payments")
-      .insert(updateData);
+      .update(updateData)
+      .eq("id_order", id_order);
 
     if (dbError) {
       console.error("[IMN Callback] Erreur DB:", dbError);
