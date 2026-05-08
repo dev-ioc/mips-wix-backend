@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
         { status: 400, headers: getCorsHeaders(origin) },
       );
     }
-
+    console.log("callback_url :", callback_url);
     const { data: merchant, error } = await supabaseAdmin
       .from("merchants")
       .select("*")
