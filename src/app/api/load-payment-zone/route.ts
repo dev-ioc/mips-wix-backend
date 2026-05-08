@@ -1,4 +1,3 @@
-// app/api/load-payment-zone/route.ts
 import { supabaseAdmin } from "@/app/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
@@ -155,13 +154,17 @@ export async function POST(request: NextRequest) {
 
     try {
       await supabaseAdmin.from("payments").insert({
-        public_key: public_key || null,
+        merchant_id: merchant.id_merchant,
         id_order,
         amount: parseFloat(String(amount)),
         currency: currencyOverride || merchant.currency || "MUR",
         status: "pending",
-        request_title: title || "Paiement",
+        payment_link: mipsData.payment_link?.url,
+        qr_code: mipsData.payment_link?.qr_code,
         created_at: new Date().toISOString(),
+        client_first_name: customer?.first_name || "",
+        client_last_name: customer?.last_name || "",
+        client_phone_number: customer?.phone_number || "",
       });
     } catch (dbError) {
       console.warn("Erreur DB (non bloquante):", dbError);
