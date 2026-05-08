@@ -69,6 +69,8 @@ export async function GET(req: NextRequest) {
             operator_password: data.operator_password,
             auth_basic_username: data.auth_basic_username,
             auth_basic_password: data.auth_basic_password,
+            imn_salt: data.imn_salt,
+            imn_cipher_key: data.imn_cipher_key,
           },
         },
         { status: 200, headers: getCorsHeaders(origin) },

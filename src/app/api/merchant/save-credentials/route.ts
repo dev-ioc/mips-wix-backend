@@ -35,6 +35,8 @@ type RequestBody = {
   sending_mode?: string;
   auth_basic_username?: string;
   auth_basic_password?: string;
+  imn_salt?: string;
+  imn_cipher_key?: string;
 };
 
 const generatePublicKey = (): string => {
@@ -92,6 +94,8 @@ export async function POST(req: NextRequest) {
       sending_mode,
       auth_basic_username,
       auth_basic_password,
+      imn_salt,
+      imn_cipher_key,
     } = body as RequestBody;
 
     if (
@@ -101,7 +105,9 @@ export async function POST(req: NextRequest) {
       !id_operator ||
       !operator_password ||
       !auth_basic_username ||
-      !auth_basic_password
+      !auth_basic_password ||
+      !imn_salt ||
+      !imn_cipher_key
     ) {
       return NextResponse.json(
         { error: "Tous les champs credentials sont requis" },
@@ -131,6 +137,8 @@ export async function POST(req: NextRequest) {
         auth_basic_username,
         auth_basic_password,
         public_key,
+        imn_salt,
+        imn_cipher_key,
         updated_at: new Date().toISOString(),
         ...(currency && { currency }),
         ...(request_mode && { request_mode }),
@@ -165,6 +173,8 @@ export async function POST(req: NextRequest) {
           sending_mode: sending_mode || "link",
           auth_basic_username,
           auth_basic_password,
+          imn_salt,
+          imn_cipher_key,
         })
         .select()
         .single();
