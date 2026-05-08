@@ -2,7 +2,6 @@ import { supabaseAdmin } from "@/app/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 
 const getCorsHeaders = (origin: string | null): Record<string, string> => {
-  // Accepter toutes les origines Wix et votre dashboard
   const isWixOrigin =
     origin &&
     (origin.endsWith(".wix.com") ||
