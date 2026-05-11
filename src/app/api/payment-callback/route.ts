@@ -10,104 +10,81 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    console.log(
-      "[IMN Callback] Données chiffrées reçues:",
-      JSON.stringify(body, null, 2),
-    );
+    console.log("[IMN Callback] Body reçu:", JSON.stringify(body, null, 2));
 
-    const { received_crypted_data, salt, cipher_key, id_merchant } = body;
+    const { crypted_callback } = body;
 
-    if (!received_crypted_data) {
-      console.error("[IMN Callback] Pas de données chiffrées");
-      return NextResponse.json(
-        { error: "received_crypted_data manquant" },
-        { status: 400 },
-      );
+    if (!crypted_callback) {
+      console.error("[IMN Callback] crypted_callback manquant");
+      return NextResponse.json("fail", { status: 400 });
     }
 
-    let merchant: any = null;
-    if (id_merchant) {
-      const { data } = await supabaseAdmin
-        .from("merchants")
-        .select("*")
-        .eq("id_merchant", id_merchant)
-        .eq("is_active", true)
-        .single();
-      merchant = data;
+    const { data: merchants } = await supabaseAdmin
+      .from("merchants")
+      .select("*")
+      .eq("is_active", true);
+
+    if (!merchants || merchants.length === 0) {
+      return NextResponse.json("fail", { status: 200 });
     }
 
-    if (!merchant) {
-      console.error(
-        "[IMN Callback] Marchand non trouvé pour id_merchant:",
-        id_merchant,
-      );
-      return NextResponse.json({ received: true }, { status: 200 });
-    }
+    let decryptedData: any = null;
+    let matchedMerchant: any = null;
 
-    const basicAuth = Buffer.from(
-      `${merchant.auth_basic_username}:${merchant.auth_basic_password}`,
-    ).toString("base64");
+    for (const merchant of merchants) {
+      try {
+        const basicAuth = Buffer.from(
+          `${merchant.auth_basic_username}:${merchant.auth_basic_password}`,
+        ).toString("base64");
 
-    console.log("[IMN Callback] Déchiffrement en cours...");
-    const decryptResponse = await fetch(
-      "https://api.mips.mu/api/decrypt_imn_data",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `Basic ${basicAuth}`,
-          "user-agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.78 Safari/537.36",
-        },
-        body: JSON.stringify({
-          authentify: {
-            id_merchant: merchant.id_merchant,
-            id_entity: merchant.id_entity,
-            id_operator: merchant.id_operator,
-            operator_password: merchant.operator_password,
+        const decryptResponse = await fetch(
+          "https://api.mips.mu/api/decrypt_imn_data",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              Authorization: `Basic ${basicAuth}`,
+              "user-agent":
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.78 Safari/537.36",
+            },
+            body: JSON.stringify({
+              authentify: {
+                id_merchant: merchant.id_merchant,
+                id_entity: merchant.id_entity,
+                id_operator: merchant.id_operator,
+                operator_password: merchant.operator_password,
+              },
+              salt: merchant.imn_salt,
+              cipher_key: merchant.imn_cipher_key,
+              received_crypted_data: crypted_callback,
+            }),
           },
-          salt: salt || merchant.imn_salt,
-          cipher_key: cipher_key || merchant.imn_cipher_key,
-          received_crypted_data,
-        }),
-      },
-    );
+        );
 
-    const decryptedRaw = await decryptResponse.text();
-    console.log(
-      "[IMN Callback] Réponse déchiffrement:",
-      decryptedRaw.slice(0, 500),
-    );
+        const raw = await decryptResponse.text();
+        const data = JSON.parse(raw);
 
-    let decryptedData: any;
-    try {
-      decryptedData = JSON.parse(decryptedRaw);
-    } catch {
-      console.error("[IMN Callback] Réponse non-JSON:", decryptedRaw);
-      return NextResponse.json({ received: true }, { status: 200 });
+        if (data?.id_order) {
+          decryptedData = data;
+          matchedMerchant = merchant;
+          break;
+        }
+      } catch (e) {
+        continue;
+      }
     }
-    const {
-      id_order,
-      status,
-      amount,
-      currency,
-      transaction_id,
-      payment_method,
-      reason_fail,
-      additional_param,
-    } = decryptedData;
 
-    console.log(
-      `[IMN Callback] Paiement déchiffré — id_order: ${id_order}, status: ${status}`,
-    );
-
-    if (!id_order) {
-      console.error(
-        "[IMN Callback] id_order manquant dans les données déchiffrées",
-      );
-      return NextResponse.json({ received: true }, { status: 200 });
+    if (!decryptedData || !matchedMerchant) {
+      console.error("[IMN Callback] Impossible de déchiffrer");
+      return NextResponse.json("success", { status: 200 });
     }
+
+    const { id_order, status, transaction_id, payment_method, reason_fail } =
+      decryptedData;
+
+    console.log(`[IMN Callback] id_order: ${id_order}, status: ${status}`);
+
     const updateData: any = {
       status: status === "success" ? "paid" : "failed",
       transaction_id: transaction_id || null,
@@ -121,19 +98,13 @@ export async function POST(request: NextRequest) {
       updateData.fail_reason = reason_fail || null;
     }
 
-    const { error: dbError } = await supabaseAdmin
+    await supabaseAdmin
       .from("payments")
       .update(updateData)
       .eq("id_order", id_order);
-
-    if (dbError) {
-      console.error("[IMN Callback] Erreur DB:", dbError);
-    } else {
-      console.log(`[IMN Callback] Paiement ${id_order} mis à jour: ${status}`);
-    }
-    return NextResponse.json({ received: true }, { status: 200 });
+    return NextResponse.json("success", { status: 200 });
   } catch (error: any) {
     console.error("[IMN Callback] Erreur interne:", error);
-    return NextResponse.json({ received: true }, { status: 200 });
+    return NextResponse.json("success", { status: 200 });
   }
 }
