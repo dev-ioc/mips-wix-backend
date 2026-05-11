@@ -42,7 +42,12 @@ export async function POST(request: NextRequest) {
         const basicAuth = Buffer.from(
           `${merchant.auth_basic_username}:${merchant.auth_basic_password}`,
         ).toString("base64");
-
+        console.log(
+          "salt:",
+          merchant.imn_salt,
+          "cipher_key:",
+          merchant.imn_cipher_key,
+        );
         const decryptResponse = await fetch(
           "https://api.mips.mu/api/decrypt_imn_data",
           {
