@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
     const { error: dbError } = await supabaseAdmin.from("payments").upsert(
       {
         id_order,
-        merchant_id: matchedMerchant.id_merchant,
+        merchant_id: matchedMerchant.id,
         amount: amount ? parseFloat(String(amount)) / 100 : null,
         currency: currency || matchedMerchant.currency,
         status: isPaid ? "paid" : "failed",
