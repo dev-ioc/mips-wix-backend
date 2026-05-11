@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/app/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
+
 export async function GET() {
   return NextResponse.json(
     { status: "callback endpoint active" },
@@ -86,28 +87,44 @@ export async function POST(request: NextRequest) {
       return NextResponse.json("success", { status: 200 });
     }
 
-    const { id_order, status, transaction_id, payment_method, reason_fail } =
-      decryptedData;
+    const {
+      id_order,
+      status,
+      amount,
+      currency,
+      transaction_id,
+      payment_method,
+      reason_fail,
+    } = decryptedData;
 
     console.log(`[IMN Callback] id_order: ${id_order}, status: ${status}`);
 
-    const updateData: any = {
-      status: status === "success" ? "paid" : "failed",
-      transaction_id: transaction_id || null,
-      payment_method: payment_method || null,
-      updated_at: new Date().toISOString(),
-    };
+    const isPaid = status?.toLowerCase() === "success";
 
-    if (status === "success") {
-      updateData.paid_at = new Date().toISOString();
+    const { error: dbError } = await supabaseAdmin.from("payments").upsert(
+      {
+        id_order,
+        merchant_id: matchedMerchant.id_merchant,
+        amount: amount ? parseFloat(String(amount)) / 100 : null,
+        currency: currency || matchedMerchant.currency,
+        status: isPaid ? "paid" : "failed",
+        transaction_id: transaction_id || null,
+        payment_method: payment_method || null,
+        fail_reason: !isPaid ? reason_fail || null : null,
+        paid_at: isPaid ? new Date().toISOString() : null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "id_order" },
+    );
+
+    if (dbError) {
+      console.error("[IMN Callback] Erreur DB:", dbError);
     } else {
-      updateData.fail_reason = reason_fail || null;
+      console.log(
+        `[IMN Callback] Paiement ${id_order} enregistré: ${isPaid ? "paid" : "failed"}`,
+      );
     }
-
-    await supabaseAdmin
-      .from("payments")
-      .update(updateData)
-      .eq("id_order", id_order);
 
     return NextResponse.json("success", { status: 200 });
   } catch (error: any) {
