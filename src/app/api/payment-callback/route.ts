@@ -9,10 +9,15 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    console.log("[IMN Callback] Body reçu:", JSON.stringify(body, null, 2));
+    const formData = await request.formData();
+    const crypted_callback = formData.get("crypted_callback") as string;
+    const id_order_param = request.nextUrl.searchParams.get("id_order");
 
-    const { crypted_callback } = body;
+    console.log("[IMN Callback] id_order (URL):", id_order_param);
+    console.log(
+      "[IMN Callback] crypted_callback reçu:",
+      crypted_callback?.slice(0, 50) + "...",
+    );
 
     if (!crypted_callback) {
       console.error("[IMN Callback] crypted_callback manquant");
@@ -63,6 +68,7 @@ export async function POST(request: NextRequest) {
         );
 
         const raw = await decryptResponse.text();
+        console.log("[IMN Callback] Réponse déchiffrement:", raw.slice(0, 200));
         const data = JSON.parse(raw);
 
         if (data?.id_order) {
@@ -102,6 +108,7 @@ export async function POST(request: NextRequest) {
       .from("payments")
       .update(updateData)
       .eq("id_order", id_order);
+
     return NextResponse.json("success", { status: 200 });
   } catch (error: any) {
     console.error("[IMN Callback] Erreur interne:", error);

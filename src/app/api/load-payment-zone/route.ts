@@ -34,7 +34,6 @@ export async function POST(request: NextRequest) {
     const {
       public_key,
       amount,
-      title,
       currency: currencyOverride,
       request_mode,
       redirect_url,
@@ -82,6 +81,8 @@ export async function POST(request: NextRequest) {
       request_mode: request_mode || merchant.request_mode || "simple",
       touchpoint: "web",
       iframe_behavior: {
+        height: 400,
+        width: 350,
         custom_redirection_url: redirect_url || "",
         language: "FR",
       },
