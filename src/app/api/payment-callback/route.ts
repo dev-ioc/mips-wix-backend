@@ -25,70 +25,71 @@ export async function POST(request: NextRequest) {
       return NextResponse.json("fail", { status: 400 });
     }
 
-    const { data: merchants } = await supabaseAdmin
-      .from("merchants")
-      .select("*")
-      .eq("is_active", true);
+    const { data: payment } = await supabaseAdmin
+      .from("payments")
+      .select("*, merchants(*)")
+      .eq("id_order", id_order_param)
+      .single();
 
-    if (!merchants || merchants.length === 0) {
-      return NextResponse.json("fail", { status: 200 });
+    if (!payment || !payment.merchants) {
+      console.error(
+        "[IMN Callback] Paiement ou marchand introuvable pour id_order:",
+        id_order_param,
+      );
+      return NextResponse.json("success", { status: 200 });
     }
 
-    let decryptedData: any = null;
-    let matchedMerchant: any = null;
+    const matchedMerchant = payment.merchants;
 
-    for (const merchant of merchants) {
-      try {
-        const basicAuth = Buffer.from(
-          `${merchant.auth_basic_username}:${merchant.auth_basic_password}`,
-        ).toString("base64");
-        console.log(
-          "salt:",
-          merchant.imn_salt,
-          "cipher_key:",
-          merchant.imn_cipher_key,
-        );
-        const decryptResponse = await fetch(
-          "https://api.mips.mu/api/decrypt_imn_data",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-              Authorization: `Basic ${basicAuth}`,
-              "user-agent":
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.78 Safari/537.36",
-            },
-            body: JSON.stringify({
-              authentify: {
-                id_merchant: merchant.id_merchant,
-                id_entity: merchant.id_entity,
-                id_operator: merchant.id_operator,
-                operator_password: merchant.operator_password,
-              },
-              salt: merchant.imn_salt,
-              cipher_key: merchant.imn_cipher_key,
-              received_crypted_data: crypted_callback,
-            }),
+    console.log(
+      "salt:",
+      matchedMerchant.imn_salt,
+      "cipher_key:",
+      matchedMerchant.imn_cipher_key,
+    );
+
+    const basicAuth = Buffer.from(
+      `${matchedMerchant.auth_basic_username}:${matchedMerchant.auth_basic_password}`,
+    ).toString("base64");
+
+    const decryptResponse = await fetch(
+      "https://api.mips.mu/api/decrypt_imn_data",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Basic ${basicAuth}`,
+          "user-agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.78 Safari/537.36",
+        },
+        body: JSON.stringify({
+          authentify: {
+            id_merchant: matchedMerchant.id_merchant,
+            id_entity: matchedMerchant.id_entity,
+            id_operator: matchedMerchant.id_operator,
+            operator_password: matchedMerchant.operator_password,
           },
-        );
-        console.log("[IMN Callback] Réponse déchiffrement:", decryptResponse);
-        const raw = await decryptResponse.text();
-        console.log("[IMN Callback] Réponse déchiffrement:", raw.slice(0, 200));
-        const data = JSON.parse(raw);
+          salt: matchedMerchant.imn_salt,
+          cipher_key: matchedMerchant.imn_cipher_key,
+          received_crypted_data: crypted_callback,
+        }),
+      },
+    );
 
-        if (data?.id_order) {
-          decryptedData = data;
-          matchedMerchant = merchant;
-          break;
-        }
-      } catch (e) {
-        continue;
-      }
+    const raw = await decryptResponse.text();
+    console.log("[IMN Callback] Réponse déchiffrement:", raw.slice(0, 200));
+
+    let decryptedData: any;
+    try {
+      decryptedData = JSON.parse(raw);
+    } catch {
+      console.error("[IMN Callback] Réponse non-JSON:", raw.slice(0, 200));
+      return NextResponse.json("success", { status: 200 });
     }
 
-    if (!decryptedData || !matchedMerchant) {
-      console.error("[IMN Callback] Impossible de déchiffrer");
+    if (!decryptedData?.id_order) {
+      console.error("[IMN Callback] Déchiffrement échoué:", decryptedData);
       return NextResponse.json("success", { status: 200 });
     }
 
