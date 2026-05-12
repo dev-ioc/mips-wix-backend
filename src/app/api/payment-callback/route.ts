@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
             }),
           },
         );
-
+        console.log("[IMN Callback] Réponse déchiffrement:", decryptResponse);
         const raw = await decryptResponse.text();
         console.log("[IMN Callback] Réponse déchiffrement:", raw.slice(0, 200));
         const data = JSON.parse(raw);
