@@ -84,6 +84,9 @@ export async function GET(req: NextRequest) {
       currency: p.currency,
       status: p.status === "paid" ? "success" : p.status,
       received_at: p.paid_at || p.created_at,
+      client_first_name: p.client_first_name,
+      client_last_name: p.client_last_name,
+      client_phone_number: p.client_phone_number,
     }));
 
     return NextResponse.json(
