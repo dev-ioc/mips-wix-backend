@@ -178,6 +178,23 @@ export async function POST(request: NextRequest) {
     } = decryptedData;
 
     console.log(`[IMN Callback] id_order: ${id_order}, status: ${status}`);
+    let parsedAdditionalParam: any = {};
+    try {
+      parsedAdditionalParam =
+        typeof additional_param === "string"
+          ? JSON.parse(additional_param)
+          : additional_param || {};
+    } catch (e) {
+      console.warn(
+        "[IMN Callback] Impossible de parser additional_param:",
+        additional_param,
+      );
+    }
+
+    console.log(
+      "[IMN Callback] additional_param parsé:",
+      parsedAdditionalParam,
+    );
 
     const isPaid = status?.toLowerCase() === "success";
 
@@ -194,9 +211,9 @@ export async function POST(request: NextRequest) {
         paid_at: isPaid ? new Date().toISOString() : null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        client_first_name: additional_param?.first_name || "",
-        client_last_name: additional_param?.last_name || "",
-        client_phone_number: additional_param?.phone_number || "",
+        client_first_name: parsedAdditionalParam?.first_name || "",
+        client_last_name: parsedAdditionalParam?.last_name || "",
+        client_phone_number: parsedAdditionalParam?.phone_number || "",
       },
       { onConflict: "id_order" },
     );

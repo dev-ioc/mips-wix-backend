@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
 
     try {
       await supabaseAdmin.from("payments").insert({
-        merchant_id: merchant.id_merchant,
+        merchant_id: merchant.id,
         id_order,
         amount: parseFloat(String(amount)),
         currency: currencyOverride || merchant.currency || "MUR",
