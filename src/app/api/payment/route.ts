@@ -88,7 +88,6 @@ export async function GET(req: NextRequest) {
       client_last_name: p.client_last_name,
       client_phone_number: p.client_phone_number,
     }));
-
     return NextResponse.json(
       { payments, total: count, summary },
       { status: 200, headers: corsHeaders },
