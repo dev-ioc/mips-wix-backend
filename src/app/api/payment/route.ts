@@ -1,27 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/app/lib/supabase";
 
-const headers = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+const getCorsHeaders = (origin: string | null): Record<string, string> => {
+  const allowedOrigins = [
+    "https://mips-payments.dev-mdg.workers.dev",
+    "https://mips-wix-backend.onrender.com",
+  ];
+  const allowedOrigin =
+    origin && allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    Vary: "Origin",
+  };
 };
 
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 200, headers });
+export async function OPTIONS(req: NextRequest) {
+  const origin = req.headers.get("origin");
+  return new NextResponse(null, {
+    status: 204,
+    headers: getCorsHeaders(origin),
+  });
 }
 
 export async function GET(req: NextRequest) {
+  const origin = req.headers.get("origin");
+  const corsHeaders = getCorsHeaders(origin);
+
   const searchParams = req.nextUrl.searchParams;
   const status = searchParams.get("status") || "all";
   const page = parseInt(searchParams.get("page") || "1", 10);
   const limit = parseInt(searchParams.get("limit") || "20", 10);
   const offset = (page - 1) * limit;
+
   const authHeader = req.headers.get("Authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return NextResponse.json(
       { error: "Non autorisé" },
-      { status: 401, headers },
+      { status: 401, headers: corsHeaders },
     );
   }
 
@@ -31,6 +49,7 @@ export async function GET(req: NextRequest) {
       .select("*", { count: "exact" })
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
+
     if (status === "success") {
       query = query.eq("status", "paid");
     } else if (status === "failed") {
@@ -69,13 +88,13 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(
       { payments, total: count, summary },
-      { status: 200, headers },
+      { status: 200, headers: corsHeaders },
     );
   } catch (error: any) {
     console.error("get-payments error:", error);
     return NextResponse.json(
       { error: error?.message || "Erreur serveur" },
-      { status: 500, headers },
+      { status: 500, headers: corsHeaders },
     );
   }
 }
