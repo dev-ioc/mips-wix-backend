@@ -158,8 +158,6 @@ export async function POST(request: NextRequest) {
         amount: parseFloat(String(amount)),
         currency: currencyOverride || merchant.currency || "MUR",
         status: "pending",
-        payment_link: mipsData.payment_link?.url,
-        qr_code: mipsData.payment_link?.qr_code,
         created_at: new Date().toISOString(),
         client_first_name: customer?.first_name || "",
         client_last_name: customer?.last_name || "",

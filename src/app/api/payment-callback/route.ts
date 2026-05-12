@@ -142,6 +142,14 @@ export async function POST(request: NextRequest) {
           if (!raw.startsWith("{")) continue;
 
           const data = JSON.parse(raw);
+          if (raw.startsWith("{")) {
+            const data = JSON.parse(raw);
+            console.log(
+              "[IMN Callback] data déchiffré complet S1:",
+              JSON.stringify(data),
+            );
+            if (data?.id_order) decryptedData = data;
+          }
           if (data?.id_order) {
             decryptedData = data;
             matchedMerchant = merchant;
@@ -166,6 +174,7 @@ export async function POST(request: NextRequest) {
       transaction_id,
       payment_method,
       reason_fail,
+      additional_param,
     } = decryptedData;
 
     console.log(`[IMN Callback] id_order: ${id_order}, status: ${status}`);
@@ -185,6 +194,9 @@ export async function POST(request: NextRequest) {
         paid_at: isPaid ? new Date().toISOString() : null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        client_first_name: additional_param?.first_name || "",
+        client_last_name: additional_param?.last_name || "",
+        client_phone_number: additional_param?.phone_number || "",
       },
       { onConflict: "id_order" },
     );
