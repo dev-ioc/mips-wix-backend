@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
     }
 
     const id_order = `WIX-${Date.now()}-${uuidv4().slice(0, 8).toUpperCase()}`;
-    console.log("operator id :", resolvedIdOperator);
+
     const mipsPayload = {
       authentify: {
         id_merchant: resolvedIdMerchant,
@@ -141,10 +141,10 @@ export async function POST(request: NextRequest) {
         request_title: title || "Paiement Wix",
         options: "warranty",
         client_details: {
-          first_name: "KARIJA",
-          last_name: "Andriatsilefilaza",
-          client_email: "dev_mdg@caspeo.fr",
-          phone_number: "0346570207",
+          first_name: "TEST",
+          last_name: "TEST TEST",
+          client_email: "test@test.com",
+          phone_number: "0612345678",
         },
         client_other_data: [
           {
@@ -189,22 +189,11 @@ export async function POST(request: NextRequest) {
         custom_redirection_url: redirect_url || "",
       },
     };
-
-    console.log(
-      "[create-payment] Payload MiPS:",
-      JSON.stringify(mipsPayload, null, 2),
-    );
     let rawText = "";
     let mipsResponse: Response;
     const basicAuth = Buffer.from(
       `${resolvedAuthBasicUsername}:${resolvedAuthBasicPassword}`,
     ).toString("base64");
-
-    console.log(
-      "[create-payment] Basic Auth string:",
-      `${resolvedAuthBasicUsername}:${resolvedAuthBasicPassword}`,
-    );
-    console.log("[create-payment] Basic Auth header:", `Basic ${basicAuth}`);
     try {
       mipsResponse = await fetch(
         "https://api.mips.mu/api/create_payment_request",
@@ -221,7 +210,6 @@ export async function POST(request: NextRequest) {
         },
       );
       rawText = await mipsResponse.text();
-      console.log("[create-payment] Réponse MiPS raw:", rawText.slice(0, 300));
     } catch (error: any) {
       return NextResponse.json(
         { error: "Impossible de contacter l'API MiPS", details: error.message },
@@ -233,8 +221,6 @@ export async function POST(request: NextRequest) {
     try {
       mipsData = JSON.parse(rawText);
     } catch {
-      console.log("[create-payment] Status MiPS:", mipsResponse.status);
-      console.log("[create-payment] Raw MiPS:", rawText.slice(0, 500));
       return NextResponse.json(
         {
           error: "Réponse invalide de l'API MiPS (non-JSON)",
@@ -284,7 +270,6 @@ export async function POST(request: NextRequest) {
       { headers: getCorsHeaders(origin) },
     );
   } catch (error: any) {
-    console.error("Erreur serveur interne:", error);
     return NextResponse.json(
       { error: "Erreur interne du serveur", details: error?.message },
       { status: 500, headers: getCorsHeaders(origin) },

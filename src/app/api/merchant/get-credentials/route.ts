@@ -92,7 +92,6 @@ export async function GET(req: NextRequest) {
       const payload = JSON.parse(atob(base64Payload));
       userId = payload.id || payload.userId || payload.user_id;
     } catch (e) {
-      console.error("Erreur décodage token:", e);
       return NextResponse.json(
         { error: "Token invalide" },
         { status: 401, headers: getCorsHeaders(origin) },
@@ -114,7 +113,6 @@ export async function GET(req: NextRequest) {
       .single();
 
     if (error) {
-      console.error("Supabase error:", error);
       return NextResponse.json(
         { error: error.message },
         { status: 500, headers: getCorsHeaders(origin) },
@@ -133,7 +131,6 @@ export async function GET(req: NextRequest) {
       { status: 200, headers: getCorsHeaders(origin) },
     );
   } catch (error: any) {
-    console.error("get-credentials error:", error);
     return NextResponse.json(
       { error: error?.message || "Erreur serveur" },
       { status: 500, headers: getCorsHeaders(origin) },

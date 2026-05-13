@@ -47,7 +47,6 @@ export async function POST(request: NextRequest) {
         { status: 400, headers: getCorsHeaders(origin) },
       );
     }
-    console.log("callback_url :", callback_url);
     const { data: merchant, error } = await supabaseAdmin
       .from("merchants")
       .select("*")
@@ -98,11 +97,6 @@ export async function POST(request: NextRequest) {
       ],
     };
 
-    console.log(
-      "[load-payment-zone] Payload:",
-      JSON.stringify(mipsPayload, null, 2),
-    );
-
     const mipsResponse = await fetch(
       "https://api.mips.mu/api/load_payment_zone",
       {
@@ -119,7 +113,6 @@ export async function POST(request: NextRequest) {
     );
 
     const rawText = await mipsResponse.text();
-    console.log("[load-payment-zone] Reponse MiPS raw:", rawText.slice(0, 800));
 
     let mipsData: any;
     try {
@@ -137,13 +130,6 @@ export async function POST(request: NextRequest) {
     const operationStatus =
       mipsData.answer?.operation_status || mipsData.operation_status;
     const paymentZoneData = mipsData.answer?.payment_zone_data || null;
-
-    console.log("[load-payment-zone] operation_status:", operationStatus);
-    console.log(
-      "[load-payment-zone] payment_zone_data present:",
-      !!paymentZoneData,
-    );
-
     if (operationStatus !== "success") {
       return NextResponse.json(
         { error: "Erreur cr\u00e9ation paiement", mips_response: mipsData },
@@ -177,7 +163,6 @@ export async function POST(request: NextRequest) {
       { headers: getCorsHeaders(origin) },
     );
   } catch (error: any) {
-    console.error("Erreur serveur:", error);
     return NextResponse.json(
       { error: "Erreur interne", details: error?.message },
       { status: 500, headers: getCorsHeaders(origin) },

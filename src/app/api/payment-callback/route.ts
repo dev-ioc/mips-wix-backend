@@ -14,12 +14,6 @@ export async function POST(request: NextRequest) {
     const crypted_callback = formData.get("crypted_callback") as string;
     const id_order_param = request.nextUrl.searchParams.get("id_order");
 
-    console.log("[IMN Callback] id_order (URL):", id_order_param);
-    console.log(
-      "[IMN Callback] crypted_callback reçu:",
-      crypted_callback?.slice(0, 50) + "...",
-    );
-
     if (!crypted_callback) {
       console.error("[IMN Callback] crypted_callback manquant");
       return NextResponse.json("fail", { status: 400 });
@@ -35,10 +29,6 @@ export async function POST(request: NextRequest) {
 
       if (payment?.merchants) {
         matchedMerchant = payment.merchants;
-        console.log(
-          "[IMN Callback] Marchand trouvé via paiement existant:",
-          matchedMerchant.id_merchant,
-        );
       }
     }
     let decryptedData: any = null;
@@ -75,7 +65,6 @@ export async function POST(request: NextRequest) {
         );
 
         const raw = await decryptResponse.text();
-        console.log("[IMN Callback] Réponse déchiffrement:", raw.slice(0, 200));
 
         if (raw.startsWith("{")) {
           const data = JSON.parse(raw);
@@ -86,10 +75,6 @@ export async function POST(request: NextRequest) {
       }
     }
     if (!decryptedData) {
-      console.log(
-        "[IMN Callback] Paiement non trouvé en base, boucle sur marchands...",
-      );
-
       const { data: merchants } = await supabaseAdmin
         .from("merchants")
         .select("*")
@@ -134,20 +119,11 @@ export async function POST(request: NextRequest) {
           );
 
           const raw = await decryptResponse.text();
-          console.log(
-            "[IMN Callback] Réponse déchiffrement:",
-            raw.slice(0, 200),
-          );
-
           if (!raw.startsWith("{")) continue;
 
           const data = JSON.parse(raw);
           if (raw.startsWith("{")) {
             const data = JSON.parse(raw);
-            console.log(
-              "[IMN Callback] data déchiffré complet S1:",
-              JSON.stringify(data),
-            );
             if (data?.id_order) decryptedData = data;
           }
           if (data?.id_order) {
@@ -177,7 +153,6 @@ export async function POST(request: NextRequest) {
       additional_param,
     } = decryptedData;
 
-    console.log(`[IMN Callback] id_order: ${id_order}, status: ${status}`);
     let parsedAdditionalParam: any = {};
     try {
       parsedAdditionalParam =
@@ -190,11 +165,6 @@ export async function POST(request: NextRequest) {
         additional_param,
       );
     }
-
-    console.log(
-      "[IMN Callback] additional_param parsé:",
-      parsedAdditionalParam,
-    );
 
     const isPaid = status?.toLowerCase() === "success";
 
@@ -228,7 +198,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json("success", { status: 200 });
   } catch (error: any) {
-    console.error("[IMN Callback] Erreur interne:", error);
     return NextResponse.json("success", { status: 200 });
   }
 }

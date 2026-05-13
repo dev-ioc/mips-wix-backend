@@ -2,7 +2,6 @@ import axios, { AxiosError, AxiosResponse } from "axios";
 
 const MIPS_API_URL = process.env.MIPS_API_URL;
 
-// Types pour les credentials
 interface Credentials {
   id_merchant: string;
   id_entity: string;
@@ -10,8 +9,6 @@ interface Credentials {
   operator_password: string;
   currency?: string;
 }
-
-// Types pour les données de paiement
 interface PaymentData {
   id_order: string;
   amount: string | number;
@@ -28,7 +25,6 @@ interface ClientData {
   phone?: string;
 }
 
-// Types pour la réponse de l'API MiPS
 interface MipsApiResponse {
   operation_status: "success" | "failed";
   operation_details?: string;
@@ -39,7 +35,6 @@ interface MipsApiResponse {
   [key: string]: any;
 }
 
-// Types pour le payload de la requête
 interface AuthentifyPayload {
   id_merchant: string;
   id_entity: string;
@@ -78,7 +73,6 @@ interface CreatePaymentPayload {
   iframe_behavior: IframeBehaviorPayload;
 }
 
-// Type pour le retour de la fonction
 interface CreatePaymentResult {
   success: boolean;
   data?: MipsApiResponse;
@@ -101,7 +95,6 @@ export async function createPaymentRequest({
   paymentData: PaymentData;
   clientData: ClientData;
 }): Promise<CreatePaymentResult> {
-  // Validation des données requises
   if (
     !credentials.id_merchant ||
     !credentials.id_entity ||
@@ -131,9 +124,9 @@ export async function createPaymentRequest({
     request: {
       request_mode: "simple",
       options: "none",
-      sending_mode: "none", // on gère nous-mêmes la redirection
+      sending_mode: "none",
       request_title: paymentData.title || "Paiement",
-      exp_date: paymentData.exp_date || getExpDate(7), // 7 jours par défaut
+      exp_date: paymentData.exp_date || getExpDate(7),
       client_details: {
         first_name: clientData.first_name || "",
         last_name: clientData.last_name || "",
@@ -153,8 +146,6 @@ export async function createPaymentRequest({
       custom_redirection_url: paymentData.redirect_url || "",
     },
   };
-
-  // Vérification que l'URL de l'API MiPS est configurée
   if (!MIPS_API_URL) {
     return {
       success: false,
@@ -172,11 +163,10 @@ export async function createPaymentRequest({
           "Content-Type": "application/json",
           "user-agent": "WixMiPS/1.0",
         },
-        timeout: 30000, // 30 secondes
+        timeout: 30000,
       },
     );
 
-    // Vérification de la réponse
     if (response.data.operation_status === "success") {
       return { success: true, data: response.data };
     } else {
@@ -188,14 +178,11 @@ export async function createPaymentRequest({
       };
     }
   } catch (error) {
-    // Gestion des erreurs axios
     if (error instanceof AxiosError) {
       const errData = error.response?.data || error.message;
       console.error("Erreur API MiPS:", errData);
       return { success: false, error: errData };
     }
-
-    // Gestion des autres types d'erreurs
     const errMessage =
       error instanceof Error ? error.message : "Erreur inconnue";
     console.error("Erreur inattendue:", errMessage);
@@ -213,8 +200,6 @@ function getExpDate(daysFromNow: number): string {
   d.setDate(d.getDate() + daysFromNow);
   return d.toISOString().split("T")[0];
 }
-
-// Export des types pour réutilisation
 export type {
   Credentials,
   PaymentData,

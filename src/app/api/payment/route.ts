@@ -94,7 +94,6 @@ export async function GET(req: NextRequest) {
       { status: 200, headers: corsHeaders },
     );
   } catch (error: any) {
-    console.error("get-payments error:", error);
     return NextResponse.json(
       { error: error?.message || "Erreur serveur" },
       { status: 500, headers: corsHeaders },

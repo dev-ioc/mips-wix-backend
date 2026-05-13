@@ -1,4 +1,3 @@
-// app/api/login/route.ts
 import { createClient } from "@/app/utils/server";
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
@@ -6,9 +5,8 @@ import jwt from "jsonwebtoken";
 
 const SECRET = process.env.JWT_SECRET!;
 
-// ✅ Un seul objet corsHeaders
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "https://mips-payments.dev-mdg.workers.dev", // <- Une seule origine
+  "Access-Control-Allow-Origin": "https://mips-payments.dev-mdg.workers.dev",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
@@ -22,8 +20,6 @@ export async function OPTIONS() {
 
 export async function POST(req: NextRequest) {
   try {
-    console.time("login");
-
     const supabase = await createClient();
     const { email, password } = await req.json();
 
@@ -52,8 +48,6 @@ export async function POST(req: NextRequest) {
     const token = jwt.sign({ user_id: user.id, email: user.email }, SECRET, {
       expiresIn: "1d",
     });
-
-    console.timeEnd("login");
 
     return NextResponse.json(
       { success: true, token },

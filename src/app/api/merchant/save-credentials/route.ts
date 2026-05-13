@@ -181,7 +181,6 @@ export async function POST(req: NextRequest) {
     }
 
     if (result.error || !result.data) {
-      console.error("Supabase error:", result.error);
       return NextResponse.json(
         { error: result.error?.message || "Échec de la sauvegarde" },
         { status: 500, headers: getCorsHeaders(origin) },
@@ -200,7 +199,6 @@ export async function POST(req: NextRequest) {
       { status: 200, headers: getCorsHeaders(origin) },
     );
   } catch (error: any) {
-    console.error("save-credentials error:", error);
     return NextResponse.json(
       { error: error?.message || "Erreur serveur" },
       { status: 500, headers: getCorsHeaders(origin) },
