@@ -87,6 +87,7 @@ export async function GET(req: NextRequest) {
       client_first_name: p.client_first_name,
       client_last_name: p.client_last_name,
       client_phone_number: p.client_phone_number,
+      fail_reason: p.fail_reason,
     }));
     return NextResponse.json(
       { payments, total: count, summary },
